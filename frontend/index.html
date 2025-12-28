@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ÉON - Audit Sécurité TPE</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Tailwind Config pour thème violet/cyberpunk -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cyber-purple': '#8B5CF6',
+                        'cyber-violet': '#A78BFA',
+                        'cyber-dark': '#1E1B4B',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Animations cyberpunk */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(139, 92, 246, 0.8); }
+        }
+        
+        .glow-btn:hover {
+            animation: glow 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-cyber-dark via-purple-900 to-black min-h-screen text-white">
+    
+    <!-- Header -->
+    <header class="border-b border-purple-500/30 bg-black/50 backdrop-blur-sm">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-gradient-to-br from-cyber-purple to-purple-600 rounded-lg flex items-center justify-center">
+                        <span class="text-2xl font-bold">É</span>
+                    </div>
+                    <h1 class="text-2xl font-bold bg-gradient-to-r from-cyber-violet to-purple-400 bg-clip-text text-transparent">
+                        ÉON
+                    </h1>
+                </div>
+                <nav class="space-x-6">
+                    <a href="#" class="hover:text-cyber-violet transition">Accueil</a>
+                    <a href="#" class="hover:text-cyber-violet transition">Historique</a>
+                    <a href="http://localhost:8000/api/docs" target="_blank" class="hover:text-cyber-violet transition">API</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-12">
+        
+        <!-- Hero Section -->
+        <div class="text-center mb-16">
+            <h2 class="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-400 via-cyber-violet to-purple-600 bg-clip-text text-transparent">
+                Audit de Sécurité pour TPE
+            </h2>
+            <p class="text-xl text-purple-200 max-w-2xl mx-auto">
+                Évaluez la posture de sécurité de votre domaine en quelques secondes. 
+                100% passif, 100% légal.
+            </p>
+        </div>
+
+        <!-- Scan Form -->
+        <div class="max-w-3xl mx-auto mb-12">
+            <div class="bg-black/40 backdrop-blur-md border border-purple-500/30 rounded-2xl p-8 shadow-2xl">
+                <h3 class="text-2xl font-semibold mb-6 text-center">Lancer un Audit</h3>
+                
+                <form id="scanForm" class="space-y-6">
+                    <div>
+                        <label for="domain" class="block text-sm font-medium mb-2 text-purple-200">
+                            Nom de domaine
+                        </label>
+                        <input 
+                            type="text" 
+                            id="domain" 
+                            name="domain"
+                            placeholder="exemple.com"
+                            required
+                            class="w-full px-4 py-3 bg-purple-950/50 border border-purple-500/30 rounded-lg focus:ring-2 focus:ring-cyber-purple focus:border-transparent outline-none transition text-white placeholder-purple-400"
+                        >
+                    </div>
+
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="includeSubdomains" 
+                            name="includeSubdomains"
+                            checked
+                            class="w-5 h-5 bg-purple-950 border-purple-500 rounded focus:ring-cyber-purple"
+                        >
+                        <label for="includeSubdomains" class="ml-3 text-sm text-purple-200">
+                            Inclure la recherche de sous-domaines vulnérables
+                        </label>
+                    </div>
+
+                    <button 
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-cyber-purple to-purple-600 hover:from-purple-600 hover:to-cyber-purple text-white font-semibold py-4 px-6 rounded-lg transition-all duration-300 glow-btn"
+                    >
+                        🔍 Démarrer l'Audit
+                    </button>
+                </form>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="hidden mt-6 text-center">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyber-purple"></div>
+                    <p class="mt-4 text-purple-200">Analyse en cours...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" class="hidden max-w-6xl mx-auto">
+            <div class="bg-black/40 backdrop-blur-md border border-purple-500/30 rounded-2xl p-8 shadow-2xl">
+                <h3 class="text-2xl font-semibold mb-6">Résultats de l'Audit</h3>
+                
+                <!-- Score Global -->
+                <div class="text-center mb-8">
+                    <div class="inline-flex items-center justify-center w-32 h-32 rounded-full bg-gradient-to-br from-cyber-purple to-purple-600">
+                        <span id="overallScore" class="text-5xl font-bold">-</span>
+                    </div>
+                    <p class="mt-4 text-xl text-purple-200">Score de Sécurité</p>
+                    <p id="platformDetected" class="text-sm text-purple-400 mt-2">Plateforme: -</p>
+                </div>
+
+                <!-- Modules Results -->
+                <div id="modulesResults" class="space-y-4">
+                    <!-- Les résultats des modules seront insérés ici par JavaScript -->
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-8 flex gap-4 justify-center">
+                    <button 
+                        onclick="exportPDF()"
+                        class="bg-purple-700 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition"
+                    >
+                        📄 Export PDF
+                    </button>
+                    <button 
+                        onclick="resetForm()"
+                        class="bg-purple-900 hover:bg-purple-800 text-white font-semibold py-3 px-6 rounded-lg transition"
+                    >
+                        🔄 Nouveau Scan
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Features Grid -->
+        <div class="mt-20 grid md:grid-cols-3 gap-8">
+            <div class="bg-black/40 border border-purple-500/30 rounded-xl p-6 backdrop-blur-sm hover:border-cyber-purple transition">
+                <div class="text-4xl mb-4">🛡️</div>
+                <h4 class="text-xl font-semibold mb-2">9 Modules d'Audit</h4>
+                <p class="text-purple-200 text-sm">DNS, SSL/TLS, Headers, OSINT, et plus encore</p>
+            </div>
+            <div class="bg-black/40 border border-purple-500/30 rounded-xl p-6 backdrop-blur-sm hover:border-cyber-purple transition">
+                <div class="text-4xl mb-4">⚡</div>
+                <h4 class="text-xl font-semibold mb-2">100% Passif</h4>
+                <p class="text-purple-200 text-sm">Scans légaux sans intrusion</p>
+            </div>
+            <div class="bg-black/40 border border-purple-500/30 rounded-xl p-6 backdrop-blur-sm hover:border-cyber-purple transition">
+                <div class="text-4xl mb-4">📊</div>
+                <h4 class="text-xl font-semibold mb-2">Recommandations</h4>
+                <p class="text-purple-200 text-sm">Actions priorisées et actionnables</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-20 border-t border-purple-500/30 bg-black/50 backdrop-blur-sm">
+        <div class="container mx-auto px-6 py-8 text-center text-purple-300 text-sm">
+            <p>ÉON - Projet M1 Cybersécurité | ESGI 2024-2025</p>
+            <p class="mt-2">Made with 💜 by l'équipe ÉON</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
