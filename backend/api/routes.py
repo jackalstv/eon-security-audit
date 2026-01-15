@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 import uuid
 from datetime import datetime
-
 from api.models import (
     ScanRequest,
     ScanResponse,
@@ -17,7 +16,7 @@ from api.models import (
 )
 
 # Import des analyzers (à implémenter)
-# from analyzers.platform_detector import detect_platform
+from analyzers.platform_detector import detect_platform
 # from analyzers.dns_analyzer import analyze_dns
 # etc...
 
@@ -46,7 +45,7 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
-            platform=PlatformType.UNKNOWN,
+            platform=detect_platform(request.domain),
             timestamp=datetime.now(),
             overall_score=0,
             modules=[],
