@@ -42,11 +42,25 @@ def analyze_dns(domain: str) -> ModuleResult:
         else:
             details['mx'] = 'non configuré'
             recommendations.append("Configurer les enregistrements MX")
+
+        # Déterminer le status et la sévérité selon le score
+        if score >= 80:
+            status = "success"
+            severity = SeverityLevel.LOW
+        elif score >= 50:
+            status = "warning"
+            severity = SeverityLevel.MEDIUM
+        elif score >= 30:
+            status = "warning"
+            severity = SeverityLevel.HIGH
+        else:
+            status = "error"
+            severity = SeverityLevel.CRITICAL
         
         return ModuleResult(
             module_name="DNS Security",
-            status="success",
-            severity=SeverityLevel.MEDIUM,
+            status=status,
+            severity=severity,
             score=score,
             details=details,
             recommendations=recommendations

@@ -18,7 +18,8 @@ from api.models import (
 # Import des analyzers (à implémenter)
 from analyzers.platform_detector import detect_platform
 from analyzers.dns_analyzer import analyze_dns
-# etc...
+from analyzers.ssl_analyzer import analyze_ssl
+
 
 router = APIRouter(tags=["Audit"])
 
@@ -49,13 +50,16 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         # Analyser le DNS
         dns_result = analyze_dns(request.domain)
 
+        # Analyser SSL/TLS
+        ssl_result = analyze_ssl(request.domain)
+
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
             platform=platform,
             timestamp=datetime.now(),
-            overall_score=dns_result.score,
-            modules=[dns_result],
+            overall_score=(dns_result.score + ssl_result.score) // 2,
+            modules=[dns_result,ssl_result],
             summary="Scan en cours...",
         )
         
