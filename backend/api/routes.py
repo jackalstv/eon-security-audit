@@ -17,7 +17,7 @@ from api.models import (
 
 # Import des analyzers (à implémenter)
 from analyzers.platform_detector import detect_platform
-# from analyzers.dns_analyzer import analyze_dns
+from analyzers.dns_analyzer import analyze_dns
 # etc...
 
 router = APIRouter(tags=["Audit"])
@@ -42,13 +42,20 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         # background_tasks.add_task(run_all_analyzers, scan_id, request.domain)
         
         # Pour l'instant, retour d'un résultat mock
+
+        # Analyser la plateforme
+        platform = detect_platform(request.domain)
+
+        # Analyser le DNS
+        dns_result = analyze_dns(request.domain)
+
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
-            platform=detect_platform(request.domain),
+            platform=platform,
             timestamp=datetime.now(),
-            overall_score=0,
-            modules=[],
+            overall_score=dns_result.score,
+            modules=[dns_result],
             summary="Scan en cours...",
         )
         
