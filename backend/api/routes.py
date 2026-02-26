@@ -1,7 +1,4 @@
-"""
-Routes API pour ÉON
-Définit les endpoints de l'application
-"""
+
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
 import uuid
@@ -29,18 +26,10 @@ scans_storage = {}
 
 @router.post("/scan", response_model=ScanResponse)
 async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
-    """
-    Lance un audit de sécurité complet sur un domaine
-    
-    - **domain**: Nom de domaine à auditer (ex: example.com)
-    - **include_subdomains**: Inclure la recherche de sous-domaines vulnérables
-    """
     try:
         # Génération ID unique pour ce scan
         scan_id = str(uuid.uuid4())
-        
-        # TODO: Lancer les analyses en arrière-plan
-        # background_tasks.add_task(run_all_analyzers, scan_id, request.domain)
+                # background_tasks.add_task(run_all_analyzers, scan_id, request.domain)
         
         # Pour l'instant, retour d'un résultat mock
 
@@ -77,9 +66,7 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
 
 @router.get("/scan/{scan_id}", response_model=ScanResponse)
 async def get_scan_result(scan_id: str):
-    """
-    Récupère le résultat d'un scan par son ID
-    """
+
     if scan_id not in scans_storage:
         raise HTTPException(status_code=404, detail="Scan non trouvé")
     
@@ -92,18 +79,13 @@ async def get_scan_result(scan_id: str):
 
 @router.get("/history", response_model=HistoryResponse)
 async def get_scan_history(limit: int = 10):
-    """
-    Récupère l'historique des scans
-    """
+
     # TODO: Implémenter avec la DB
     return HistoryResponse(scans=[], total=0)
 
 
 @router.delete("/scan/{scan_id}")
 async def delete_scan(scan_id: str):
-    """
-    Supprime un scan de l'historique
-    """
     if scan_id not in scans_storage:
         raise HTTPException(status_code=404, detail="Scan non trouvé")
     
@@ -113,9 +95,6 @@ async def delete_scan(scan_id: str):
 
 @router.get("/platforms")
 async def get_supported_platforms():
-    """
-    Liste des plateformes détectables
-    """
     return {
         "platforms": [platform.value for platform in PlatformType],
         "total": len(PlatformType),

@@ -1,7 +1,4 @@
-"""
-ÉON - Outil d'Audit Sécurité TPE
-Point d'entrée de l'application FastAPI
-"""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -30,7 +27,6 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    """Endpoint racine - Informations de l'API"""
     return {
         "name": settings.APP_NAME,
         "version": settings.APP_VERSION,
@@ -41,7 +37,6 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check pour monitoring"""
     return {"status": "healthy"}
 
 

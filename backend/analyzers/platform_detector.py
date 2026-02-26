@@ -2,7 +2,6 @@ import requests
 from api.models import PlatformType
 
 def detect_platform(domain: str)-> PlatformType :
-    """Détecte la platforme d'h"bergement d'un domaine"""
     try :
         url=f"https://{domain}"
         headers = {
