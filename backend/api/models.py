@@ -1,5 +1,4 @@
-
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
@@ -25,8 +24,9 @@ class SeverityLevel(str, Enum):
 class ScanRequest(BaseModel):
     domain: str = Field(..., description="Domaine à scanner (ex: example.com)")
     include_subdomains: bool = Field(default=True, description="Inclure scan des sous-domaines")
-    
-    @validator('domain')
+
+    @field_validator('domain')
+    @classmethod
     def validate_domain(cls, v):
         v = v.lower().strip()
         # Retirer https:// ou http:// si présent

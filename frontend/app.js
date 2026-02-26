@@ -197,7 +197,7 @@ function exportPDF() {
  */
 window.addEventListener('DOMContentLoaded', async () => {
     try {
-        const response = await fetch('http://localhost:8000/health');
+        const response = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
         if (response.ok) {
             console.log('✅ Backend connecté');
         }
