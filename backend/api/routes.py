@@ -1,6 +1,7 @@
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import List
+from analyzers.subdomain_takeover_analyzer import detect_subdomain_takeover
 import uuid
 from datetime import datetime
 from api.models import (
@@ -47,13 +48,16 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         # Analyser les Security Headers
         security_headers_result = analyze_security_headers(request.domain)
 
+        #subdomaine analyser
+        takeover_result = detect_subdomain_takeover(request.domain)
+
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
             platform=platform,
             timestamp=datetime.now(),
-            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score) // 3,
-            modules=[dns_result,ssl_result,security_headers_result],
+            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score + takeover_result.score) // 4,
+            modules=[dns_result, ssl_result, security_headers_result, takeover_result],
             summary="Scan en cours...",
         )
         
