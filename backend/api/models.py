@@ -1,6 +1,4 @@
-"""
-Modèles Pydantic pour validation des données API
-"""
+
 from pydantic import BaseModel, Field, HttpUrl, validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -8,7 +6,6 @@ from enum import Enum
 
 
 class PlatformType(str, Enum):
-    """Types de plateformes détectables"""
     SHOPIFY = "shopify"
     WIX = "wix"
     WORDPRESS = "wordpress"
@@ -18,7 +15,6 @@ class PlatformType(str, Enum):
 
 
 class SeverityLevel(str, Enum):
-    """Niveaux de sévérité des vulnérabilités"""
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -27,13 +23,11 @@ class SeverityLevel(str, Enum):
 
 
 class ScanRequest(BaseModel):
-    """Requête pour lancer un scan"""
     domain: str = Field(..., description="Domaine à scanner (ex: example.com)")
     include_subdomains: bool = Field(default=True, description="Inclure scan des sous-domaines")
     
     @validator('domain')
     def validate_domain(cls, v):
-        """Valider le format du domaine"""
         v = v.lower().strip()
         # Retirer https:// ou http:// si présent
         v = v.replace('https://', '').replace('http://', '').replace('www.', '')
@@ -43,7 +37,6 @@ class ScanRequest(BaseModel):
 
 
 class ModuleResult(BaseModel):
-    """Résultat d'un module d'analyse"""
     module_name: str
     status: str  # "success", "warning", "error", "info"
     severity: SeverityLevel
@@ -53,7 +46,6 @@ class ModuleResult(BaseModel):
 
 
 class ScanResult(BaseModel):
-    """Résultat complet d'un scan"""
     scan_id: str
     domain: str
     platform: PlatformType
@@ -68,7 +60,6 @@ class ScanResult(BaseModel):
 
 
 class RecommendationItem(BaseModel):
-    """Item de recommandation priorisé"""
     priority: int = Field(ge=1, le=5)
     severity: SeverityLevel
     title: str
@@ -79,7 +70,6 @@ class RecommendationItem(BaseModel):
 
 
 class ScanResponse(BaseModel):
-    """Réponse API après un scan"""
     success: bool
     scan_id: str
     result: Optional[ScanResult] = None
@@ -87,7 +77,6 @@ class ScanResponse(BaseModel):
 
 
 class HistoryItem(BaseModel):
-    """Item dans l'historique des scans"""
     scan_id: str
     domain: str
     timestamp: datetime
@@ -96,6 +85,5 @@ class HistoryItem(BaseModel):
 
 
 class HistoryResponse(BaseModel):
-    """Réponse pour l'historique"""
     scans: List[HistoryItem]
     total: int
