@@ -2,6 +2,8 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+import re
+import dns.resolver
 
 
 class PlatformType(str, Enum):
@@ -29,10 +31,27 @@ class ScanRequest(BaseModel):
     @classmethod
     def validate_domain(cls, v):
         v = v.lower().strip()
-        # Retirer https:// ou http:// si présent
         v = v.replace('https://', '').replace('http://', '').replace('www.', '')
-        # Retirer le trailing slash
         v = v.rstrip('/')
+
+        # Vérifier le format
+        pattern = r'^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'
+        if not re.match(pattern, v):
+            raise ValueError("Format de domaine invalide (ex: example.com)")
+
+        # Vérifier que le domaine résout en DNS
+        try:
+            dns.resolver.resolve(v, 'A')
+        except dns.resolver.NXDOMAIN:
+            raise ValueError(f"Le domaine '{v}' n'existe pas")
+        except dns.resolver.NoAnswer:
+            try:
+                dns.resolver.resolve(v, 'MX')
+            except Exception:
+                raise ValueError(f"Le domaine '{v}' ne résout pas")
+        except Exception:
+            raise ValueError(f"Impossible de résoudre le domaine '{v}'")
+
         return v
 
 
@@ -65,7 +84,7 @@ class RecommendationItem(BaseModel):
     title: str
     description: str
     action: str
-    estimated_time: str  # "5 min", "1 heure", etc.
+    estimated_time: str
     module: str
 
 

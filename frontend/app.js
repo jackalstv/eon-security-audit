@@ -3,20 +3,19 @@
  * Gère les interactions avec l'API backend
  */
 
-//const API_BASE_URL = 'http://localhost:8000/api/v1';
 const API_BASE_URL = `http://${window.location.hostname}:8000/api/v1`;
+
 // État de l'application
 let currentScanId = null;
 
 document.getElementById('scanForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    
+
     const domain = document.getElementById('domain').value.trim();
     const includeSubdomains = document.getElementById('includeSubdomains').checked;
-    
-    // Afficher le loading
+
     showLoading();
-    
+
     try {
         const response = await fetch(`${API_BASE_URL}/scan`, {
             method: 'POST',
@@ -28,20 +27,23 @@ document.getElementById('scanForm').addEventListener('submit', async (e) => {
                 include_subdomains: includeSubdomains
             })
         });
-        
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errData = await response.json();
+            const msg = errData.detail?.[0]?.msg || errData.detail || 'Erreur lors du scan';
+            showError(msg);
+            return;
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             currentScanId = data.scan_id;
             displayResults(data.result);
         } else {
             showError(data.error || 'Erreur lors du scan');
         }
-        
+
     } catch (error) {
         console.error('Erreur:', error);
         showError('Impossible de se connecter au serveur. Vérifiez que le backend est lancé.');
@@ -54,17 +56,14 @@ document.getElementById('scanForm').addEventListener('submit', async (e) => {
  * Affiche les résultats du scan
  */
 function displayResults(result) {
-    // Afficher la section résultats
     document.getElementById('resultsSection').classList.remove('hidden');
-    
-    // Score global
+
     document.getElementById('overallScore').textContent = result.overall_score;
     document.getElementById('platformDetected').textContent = `Plateforme: ${result.platform}`;
-    
-    // Modules
+
     const modulesContainer = document.getElementById('modulesResults');
     modulesContainer.innerHTML = '';
-    
+
     if (result.modules && result.modules.length > 0) {
         result.modules.forEach(module => {
             modulesContainer.innerHTML += createModuleCard(module);
@@ -77,8 +76,7 @@ function displayResults(result) {
             </div>
         `;
     }
-    
-    // Scroll vers les résultats
+
     document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -93,17 +91,17 @@ function createModuleCard(module) {
         low: 'border-blue-500 bg-blue-950/30',
         info: 'border-purple-500 bg-purple-950/30'
     };
-    
+
     const statusIcons = {
         success: '✅',
         warning: '⚠️',
         error: '❌',
         info: 'ℹ️'
     };
-    
+
     const colorClass = severityColors[module.severity] || severityColors.info;
     const icon = statusIcons[module.status] || 'ℹ️';
-    
+
     return `
         <div class="border ${colorClass} rounded-lg p-6 backdrop-blur-sm">
             <div class="flex items-start justify-between mb-4">
@@ -117,7 +115,7 @@ function createModuleCard(module) {
                     ${module.severity.toUpperCase()}
                 </span>
             </div>
-            
+
             ${module.recommendations && module.recommendations.length > 0 ? `
                 <div class="mt-4">
                     <p class="text-sm font-semibold mb-2 text-purple-200">Recommandations:</p>
@@ -163,7 +161,9 @@ function hideLoading() {
  * Affiche une erreur
  */
 function showError(message) {
-    alert(`Erreur: ${message}`);
+    // Nettoyer le préfixe pydantic "Value error, " si présent
+    const cleanMessage = message.replace(/^Value error,\s*/i, '');
+    alert(`Erreur: ${cleanMessage}`);
 }
 
 /**
@@ -173,8 +173,6 @@ function resetForm() {
     document.getElementById('scanForm').reset();
     document.getElementById('resultsSection').classList.add('hidden');
     currentScanId = null;
-    
-    // Scroll vers le haut
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -186,8 +184,6 @@ function exportPDF() {
         alert('Aucun scan à exporter');
         return;
     }
-    
-    // TODO: Implémenter l'appel API pour générer le PDF
     alert('Export PDF en cours de développement...');
     console.log('Export PDF pour scan:', currentScanId);
 }
