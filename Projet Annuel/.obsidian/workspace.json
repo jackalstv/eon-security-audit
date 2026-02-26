@@ -20,8 +20,21 @@
               "icon": "lucide-file",
               "title": "Note"
             }
+          },
+          {
+            "id": "cc9265aa41247bb5",
+            "type": "leaf",
+            "state": {
+              "type": "release-notes",
+              "state": {
+                "currentVersion": "1.11.5"
+              },
+              "icon": "lucide-book-up",
+              "title": "Release Notes 1.11.5"
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -78,8 +91,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300,
-    "collapsed": true
+    "width": 300
   },
   "right": {
     "id": "6206b5f031b38689",
@@ -184,7 +196,7 @@
       "bases:Create new base": false
     }
   },
-  "active": "d2a04627a3defaf0",
+  "active": "cc9265aa41247bb5",
   "lastOpenFiles": [
     "créez un lien.md",
     "Note.md"

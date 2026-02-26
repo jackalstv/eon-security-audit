@@ -1,14 +1,9 @@
-"""
-Configuration de l'application ÉON
-Gère les variables d'environnement et les paramètres globaux
-"""
+
 from pydantic_settings import BaseSettings
 from typing import Optional
 
 
 class Settings(BaseSettings):
-    """Configuration de l'application"""
-    
     # Application
     APP_NAME: str = "ÉON - Audit Sécurité TPE"
     APP_VERSION: str = "1.0.0"
