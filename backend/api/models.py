@@ -1,14 +1,12 @@
-"""
-Modèles Pydantic pour validation des données API
-"""
-from pydantic import BaseModel, Field, HttpUrl, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+import re
+import dns.resolver
 
 
 class PlatformType(str, Enum):
-    """Types de plateformes détectables"""
     SHOPIFY = "shopify"
     WIX = "wix"
     WORDPRESS = "wordpress"
@@ -18,7 +16,6 @@ class PlatformType(str, Enum):
 
 
 class SeverityLevel(str, Enum):
-    """Niveaux de sévérité des vulnérabilités"""
     CRITICAL = "critical"
     HIGH = "high"
     MEDIUM = "medium"
@@ -27,23 +24,38 @@ class SeverityLevel(str, Enum):
 
 
 class ScanRequest(BaseModel):
-    """Requête pour lancer un scan"""
     domain: str = Field(..., description="Domaine à scanner (ex: example.com)")
     include_subdomains: bool = Field(default=True, description="Inclure scan des sous-domaines")
-    
-    @validator('domain')
+
+    @field_validator('domain')
+    @classmethod
     def validate_domain(cls, v):
-        """Valider le format du domaine"""
         v = v.lower().strip()
-        # Retirer https:// ou http:// si présent
         v = v.replace('https://', '').replace('http://', '').replace('www.', '')
-        # Retirer le trailing slash
         v = v.rstrip('/')
+
+        # Vérifier le format
+        pattern = r'^([a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$'
+        if not re.match(pattern, v):
+            raise ValueError("Format de domaine invalide (ex: example.com)")
+
+        # Vérifier que le domaine résout en DNS
+        try:
+            dns.resolver.resolve(v, 'A')
+        except dns.resolver.NXDOMAIN:
+            raise ValueError(f"Le domaine '{v}' n'existe pas")
+        except dns.resolver.NoAnswer:
+            try:
+                dns.resolver.resolve(v, 'MX')
+            except Exception:
+                raise ValueError(f"Le domaine '{v}' ne résout pas")
+        except Exception:
+            raise ValueError(f"Impossible de résoudre le domaine '{v}'")
+
         return v
 
 
 class ModuleResult(BaseModel):
-    """Résultat d'un module d'analyse"""
     module_name: str
     status: str  # "success", "warning", "error", "info"
     severity: SeverityLevel
@@ -53,7 +65,6 @@ class ModuleResult(BaseModel):
 
 
 class ScanResult(BaseModel):
-    """Résultat complet d'un scan"""
     scan_id: str
     domain: str
     platform: PlatformType
@@ -68,18 +79,16 @@ class ScanResult(BaseModel):
 
 
 class RecommendationItem(BaseModel):
-    """Item de recommandation priorisé"""
     priority: int = Field(ge=1, le=5)
     severity: SeverityLevel
     title: str
     description: str
     action: str
-    estimated_time: str  # "5 min", "1 heure", etc.
+    estimated_time: str
     module: str
 
 
 class ScanResponse(BaseModel):
-    """Réponse API après un scan"""
     success: bool
     scan_id: str
     result: Optional[ScanResult] = None
@@ -87,7 +96,6 @@ class ScanResponse(BaseModel):
 
 
 class HistoryItem(BaseModel):
-    """Item dans l'historique des scans"""
     scan_id: str
     domain: str
     timestamp: datetime
@@ -96,6 +104,5 @@ class HistoryItem(BaseModel):
 
 
 class HistoryResponse(BaseModel):
-    """Réponse pour l'historique"""
     scans: List[HistoryItem]
     total: int
