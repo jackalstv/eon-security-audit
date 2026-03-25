@@ -56,10 +56,24 @@ def analyze_ssl(domain: str) -> ModuleResult:
         except:
             details['hsts'] = 'Non vérifiable'
         
+        # Détermination status & severity (ALIGNÉ DNS)
+        if score >= 80:
+            status = "success"
+            severity = SeverityLevel.LOW
+        elif score >= 50:
+            status = "warning"
+            severity = SeverityLevel.MEDIUM
+        elif score >= 30:
+            status = "warning"
+            severity = SeverityLevel.HIGH
+        else:
+            status = "error"
+            severity = SeverityLevel.CRITICAL
+
         return ModuleResult(
             module_name="SSL/TLS Security",
-            status="success",
-            severity=SeverityLevel.LOW,
+            status=status,
+            severity=severity,
             score=score,
             details=details,
             recommendations=recommendations
