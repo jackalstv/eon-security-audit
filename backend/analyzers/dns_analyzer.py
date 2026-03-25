@@ -2,7 +2,6 @@ import checkdmarc
 from api.models import ModuleResult, SeverityLevel
 
 def analyze_dns(domain: str) -> ModuleResult:
-    """Analyse la configuration DNS (SPF, DKIM, DMARC, DNSSEC)"""
     try:
         result = checkdmarc.check_domains([domain])
         

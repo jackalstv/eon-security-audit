@@ -9,21 +9,21 @@ Outil web professionnel d'audit de sécurité pour TPE/PME, permettant d'évalue
 ## 📋 Fonctionnalités
 
 ### 9 Modules d'Audit Passif
-1. **Détection de plateforme** - Shopify, Wix, WordPress, auto-hébergé
-2. **DNS Security** - SPF, DKIM, DMARC, DNSSEC
-3. **Email Security** - Configuration MX, anti-spam
-4. **SSL/TLS** - Certificats, HSTS, expiration
-5. **Security Headers** - CSP, X-Frame-Options, etc.
-6. **Domain Expiration** - Alerte sur expiration domaine
-7. **Subdomain Takeover** - Détection sous-domaines vulnérables
-8. **OSINT Breaches** - Vérification fuites de données (HIBP)
-9. **Questionnaire Posture** - MFA, backups, formation
+1. **Détection de plateforme** - Shopify, Wix, WordPress, auto-hébergé => andré
+2. **DNS Security** - SPF, DKIM, DMARC, DNSSEC => andré
+3. **Email Security** - Configuration MX, anti-spam => Théo
+4. **SSL/TLS** - Certificats, HSTS, expiration => andré
+5. **Security Headers** - CSP, X-Frame-Options, etc. => Théo
+6. **Domain Expiration** - Alerte sur expiration domaine => Théo
+7. **Subdomain Takeover** - Détection sous-domaines vulnérables => andré
+8. **OSINT Breaches** - Vérification fuites de données (HIBP) => Théo
+9. **Questionnaire Posture** - MFA, backups, formation => Omar
 
 ### Scoring & Recommandations
 - Score global /100
 - Priorisation des recommandations
-- Export PDF professionnel
-- Historique avec évolution temporelle
+- Export PDF professionnel => Omar
+- Historique avec évolution temporelle => Omar
 
 ## 🚀 Installation Rapide
 
