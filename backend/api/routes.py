@@ -20,6 +20,7 @@ from analyzers.platform_detector import detect_platform
 from analyzers.dns_analyzer import analyze_dns
 from analyzers.ssl_analyzer import analyze_ssl
 from analyzers.security_headers_analyzer import analyze_security_headers
+from analyzers.email_analyzer import analyze_email
 
 
 
@@ -58,13 +59,16 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         # Analyser les Security Headers
         security_headers_result = analyze_security_headers(request.domain)
 
+        # Analyser la sécurité email
+        email_result = analyze_email(request.domain)
+
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
             platform=platform,
             timestamp=datetime.now(),
-            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score) // 3,
-            modules=[dns_result,ssl_result,security_headers_result],
+            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score + email_result.score) // 4,
+            modules=[dns_result,ssl_result,security_headers_result,email_result],
             summary="Scan en cours...",
         )
         
