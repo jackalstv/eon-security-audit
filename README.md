@@ -103,17 +103,9 @@ eon/
 - **PDF**: ReportLab
 - **Deploy**: Railway (backend) + Vercel (frontend)
 
-## 📊 Roadmap
-
-- [x] Phase 1: MVP Fonctionnel (S1-12)
-- [ ] Phase 2: Stabilisation & Production (S13-20)
-- [ ] Phase 3: Améliorations UX (S21-24)
-- [ ] Phase 4: Finalisation (S25-28)
-
 ## 👥 Équipe
 
 Projet M1 Cybersécurité - ESGI France  
-Durée : 7 mois (travail week-end uniquement)
 
 ## 📝 License
 
