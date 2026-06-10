@@ -20,7 +20,7 @@ Audit de sécurité passif pour TPE/PME · 9 modules · Score global /100
 | 5 | **Email Security** `email_analyzer.py` | Teste la configuration du serveur mail : enregistrements MX, redondance, chiffrement STARTTLS, bannière SMTP. | Théo |  Fait |
 | 6 | **Subdomain Takeover** `subdomain_takeover_analyzer.py` | Détecte les sous-domaines pointant vers des services abandonnés, potentiellement récupérables par un attaquant. | André |  Fait |
 | **Modules en cours / à implémenter** | | | | |
-| 7 | **Domain Expiration** `domain_expiration.py` | Interroge le WHOIS pour vérifier la date d'expiration du domaine. Alerte si renouvellement urgent (<30 jours). | Théo | 🔧 WIP |
+| 7 | **Domain Expiration** `domain_expiration.py` | Interroge le WHOIS pour vérifier la date d'expiration du domaine. Alerte si renouvellement urgent (<30 jours). | Théo | fait|
 | 8 | **OSINT Breaches** `osint_breaches.py` | Interroge Have I Been Pwned pour détecter si des emails du domaine ont fuité dans des bases de données piratées. | Théo | 🔧 WIP |
 | 9 | **Questionnaire Posture** `questionnaire.py` | Questionnaire manuel sur les pratiques humaines : MFA, sauvegardes, formation phishing, mises à jour, gestion des accès. | Omar | 🔧 WIP |
 | **Infrastructure & fonctionnalités transverses** | | | | |
