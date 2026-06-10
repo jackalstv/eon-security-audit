@@ -24,7 +24,7 @@ Audit de sécurité passif pour TPE/PME · 9 modules · Score global /100
 | 8 | **OSINT Breaches** `osint_breaches.py` | Interroge Have I Been Pwned pour détecter si des emails du domaine ont fuité dans des bases de données piratées. | Théo | 🔧 WIP |
 | 9 | **Questionnaire Posture** `questionnaire.py` | Questionnaire manuel sur les pratiques humaines : MFA, sauvegardes, formation phishing, mises à jour, gestion des accès. | Omar | 🔧 WIP |
 | **Infrastructure & fonctionnalités transverses** | | | | |
-| — | **Base de données** PostgreSQL | Persistance des résultats de scan. Actuellement en mémoire vive — nécessaire pour l'historique et les exports. | Omar | 🔧 WIP |
+| — | **Base de données** PostgreSQL | Persistance des résultats de scan. Actuellement en mémoire vive — nécessaire pour l'historique et les exports. | Théo | 🔧 WIP |
 | — | **Export PDF** Rapport client | Génère un rapport structuré (scores, recommandations priorisées, date) exportable pour client ou assureur. | Omar | 🔧 WIP |
 | — | **Historique des scans** Suivi temporel | Conserve les scans passés pour mesurer l'évolution du score dans le temps et détecter les régressions. | Omar | 🔧 WIP |
 
