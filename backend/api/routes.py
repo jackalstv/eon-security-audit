@@ -19,6 +19,7 @@ from analyzers.dns_analyzer import analyze_dns
 from analyzers.ssl_analyzer import analyze_ssl
 from analyzers.security_headers_analyzer import analyze_security_headers
 from analyzers.email_analyzer import analyze_email
+from analyzers.domain_expiration import analyze_domain_expiration
 
 
 
@@ -55,13 +56,16 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
         #subdomaine analyser
         takeover_result = detect_subdomain_takeover(request.domain)
 
+        # Analyser l'expiration du domaine
+        expiration_result = analyze_domain_expiration(request.domain)
+
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
             platform=platform,
             timestamp=datetime.now(),
-            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score + email_result.score + takeover_result.score) // 5,
-            modules=[dns_result, ssl_result, security_headers_result, email_result, takeover_result],
+            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score + email_result.score + takeover_result.score + expiration_result.score) // 6,
+            modules=[dns_result, ssl_result, security_headers_result, email_result, takeover_result, expiration_result],
             summary="Scan en cours...",
         )
         
