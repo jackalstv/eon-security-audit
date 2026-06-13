@@ -177,15 +177,41 @@ function resetForm() {
 }
 
 /**
- * Export PDF (à implémenter)
+ * Télécharge le rapport PDF du scan courant
  */
-function exportPDF() {
+async function exportPDF() {
     if (!currentScanId) {
         alert('Aucun scan à exporter');
         return;
     }
-    alert('Export PDF en cours de développement...');
-    console.log('Export PDF pour scan:', currentScanId);
+
+    const btn = document.querySelector('button[onclick="exportPDF()"]');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '⏳ Génération en cours...';
+    btn.disabled = true;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/scan/${currentScanId}/pdf`);
+        if (!response.ok) {
+            throw new Error('Erreur lors de la génération du rapport');
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const cd = response.headers.get('Content-Disposition') || '';
+        const match = cd.match(/filename="(.+?)"/);
+        a.download = match ? match[1] : `rapport-eon-${currentScanId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Erreur lors de la génération du PDF : ' + error.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
 }
 
 /**

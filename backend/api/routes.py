@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
+from io import BytesIO
 import uuid
 from datetime import datetime
 
@@ -14,6 +16,7 @@ from api.models import (
     SeverityLevel,
 )
 from database import get_db
+from pdf_report import generate_pdf
 from db_models import ScanRecord, ModuleRecord
 from analyzers.platform_detector import detect_platform
 from analyzers.dns_analyzer import analyze_dns
@@ -119,6 +122,21 @@ async def start_scan(request: ScanRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du scan: {str(e)}")
+
+
+@router.get("/scan/{scan_id}/pdf")
+async def download_pdf(scan_id: str, db: Session = Depends(get_db)):
+    record = db.query(ScanRecord).filter(ScanRecord.scan_id == scan_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Scan non trouvé")
+    result = _db_to_result(record)
+    pdf_bytes = generate_pdf(result)
+    filename = f"rapport-eon-{result.domain}-{result.timestamp.strftime('%Y%m%d')}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/scan/{scan_id}", response_model=ScanResponse)
