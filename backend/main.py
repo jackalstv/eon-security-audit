@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from config import settings
+from database import Base, engine
+import db_models  # noqa: F401 — enregistre les modèles ORM avant create_all
 
 # Import des routes
 from api.routes import router
@@ -22,6 +23,11 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept"],
 )
+
+
+@app.on_event("startup")
+async def create_tables():
+    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/")

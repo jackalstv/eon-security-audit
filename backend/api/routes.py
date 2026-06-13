@@ -1,116 +1,165 @@
-
-from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import List
-from analyzers.subdomain_takeover_analyzer import detect_subdomain_takeover
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
 import uuid
 from datetime import datetime
+
 from api.models import (
     ScanRequest,
     ScanResponse,
     ScanResult,
     HistoryResponse,
+    HistoryItem,
     PlatformType,
     ModuleResult,
+    SeverityLevel,
 )
-
-# Import des analyzers (à implémenter)
+from database import get_db
+from db_models import ScanRecord, ModuleRecord
 from analyzers.platform_detector import detect_platform
 from analyzers.dns_analyzer import analyze_dns
 from analyzers.ssl_analyzer import analyze_ssl
 from analyzers.security_headers_analyzer import analyze_security_headers
 from analyzers.email_analyzer import analyze_email
 from analyzers.domain_expiration import analyze_domain_expiration
+from analyzers.subdomain_takeover_analyzer import detect_subdomain_takeover
 from analyzers.osint_breaches import analyze_osint_breaches
-
 
 
 router = APIRouter(tags=["Audit"])
 
-# Stockage temporaire en mémoire (sera remplacé par DB)
-scans_storage = {}
+
+def _result_to_db(scan_id: str, result: ScanResult) -> ScanRecord:
+    record = ScanRecord(
+        scan_id=scan_id,
+        domain=result.domain,
+        platform=result.platform.value,
+        timestamp=result.timestamp,
+        overall_score=result.overall_score,
+        summary=result.summary,
+        critical_issues=result.critical_issues,
+        high_issues=result.high_issues,
+        medium_issues=result.medium_issues,
+        low_issues=result.low_issues,
+        modules=[
+            ModuleRecord(
+                scan_id=scan_id,
+                module_name=m.module_name,
+                status=m.status,
+                severity=m.severity.value,
+                score=m.score,
+                details=m.details,
+                recommendations=m.recommendations,
+            )
+            for m in result.modules
+        ],
+    )
+    return record
+
+
+def _db_to_result(record: ScanRecord) -> ScanResult:
+    return ScanResult(
+        scan_id=record.scan_id,
+        domain=record.domain,
+        platform=PlatformType(record.platform),
+        timestamp=record.timestamp,
+        overall_score=record.overall_score,
+        summary=record.summary,
+        critical_issues=record.critical_issues,
+        high_issues=record.high_issues,
+        medium_issues=record.medium_issues,
+        low_issues=record.low_issues,
+        modules=[
+            ModuleResult(
+                module_name=m.module_name,
+                status=m.status,
+                severity=SeverityLevel(m.severity),
+                score=m.score,
+                details=m.details,
+                recommendations=m.recommendations,
+            )
+            for m in record.modules
+        ],
+    )
 
 
 @router.post("/scan", response_model=ScanResponse)
-async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
+async def start_scan(request: ScanRequest, db: Session = Depends(get_db)):
     try:
-        # Génération ID unique pour ce scan
         scan_id = str(uuid.uuid4())
-                # background_tasks.add_task(run_all_analyzers, scan_id, request.domain)
-        
-        # Pour l'instant, retour d'un résultat mock
 
-        # Analyser la plateforme
         platform = detect_platform(request.domain)
-
-        # Analyser le DNS
         dns_result = analyze_dns(request.domain)
-
-        # Analyser SSL/TLS
         ssl_result = analyze_ssl(request.domain)
-
-        # Analyser les Security Headers
         security_headers_result = analyze_security_headers(request.domain)
-
-        # Analyser la sécurité email
         email_result = analyze_email(request.domain)
-
-        #subdomaine analyser
         takeover_result = detect_subdomain_takeover(request.domain)
-
-        # Analyser l'expiration du domaine
         expiration_result = analyze_domain_expiration(request.domain)
-
-        # Détecter les fuites OSINT via Have I Been Pwned
         osint_result = analyze_osint_breaches(request.domain)
+
+        all_modules = [
+            dns_result, ssl_result, security_headers_result,
+            email_result, takeover_result, expiration_result, osint_result,
+        ]
+        overall_score = sum(m.score for m in all_modules) // len(all_modules)
 
         result = ScanResult(
             scan_id=scan_id,
             domain=request.domain,
             platform=platform,
             timestamp=datetime.now(),
-            overall_score=(dns_result.score + ssl_result.score + security_headers_result.score + email_result.score + takeover_result.score + expiration_result.score + osint_result.score) // 7,
-            modules=[dns_result, ssl_result, security_headers_result, email_result, takeover_result, expiration_result, osint_result],
-            summary="Scan en cours...",
+            overall_score=overall_score,
+            modules=all_modules,
+            summary="Scan complété.",
         )
-        
-        scans_storage[scan_id] = result
-        
-        return ScanResponse(
-            success=True,
-            scan_id=scan_id,
-            result=result,
-        )
-        
+
+        db.add(_result_to_db(scan_id, result))
+        db.commit()
+
+        return ScanResponse(success=True, scan_id=scan_id, result=result)
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du scan: {str(e)}")
 
 
 @router.get("/scan/{scan_id}", response_model=ScanResponse)
-async def get_scan_result(scan_id: str):
-
-    if scan_id not in scans_storage:
+async def get_scan_result(scan_id: str, db: Session = Depends(get_db)):
+    record = db.query(ScanRecord).filter(ScanRecord.scan_id == scan_id).first()
+    if not record:
         raise HTTPException(status_code=404, detail="Scan non trouvé")
-    
-    return ScanResponse(
-        success=True,
-        scan_id=scan_id,
-        result=scans_storage[scan_id],
-    )
+    return ScanResponse(success=True, scan_id=scan_id, result=_db_to_result(record))
 
 
 @router.get("/history", response_model=HistoryResponse)
-async def get_scan_history(limit: int = 10):
-
-    # TODO: Implémenter avec la DB
-    return HistoryResponse(scans=[], total=0)
+async def get_scan_history(limit: int = 10, db: Session = Depends(get_db)):
+    records = (
+        db.query(ScanRecord)
+        .order_by(ScanRecord.timestamp.desc())
+        .limit(limit)
+        .all()
+    )
+    total = db.query(ScanRecord).count()
+    return HistoryResponse(
+        scans=[
+            HistoryItem(
+                scan_id=r.scan_id,
+                domain=r.domain,
+                timestamp=r.timestamp,
+                overall_score=r.overall_score,
+                platform=PlatformType(r.platform),
+            )
+            for r in records
+        ],
+        total=total,
+    )
 
 
 @router.delete("/scan/{scan_id}")
-async def delete_scan(scan_id: str):
-    if scan_id not in scans_storage:
+async def delete_scan(scan_id: str, db: Session = Depends(get_db)):
+    record = db.query(ScanRecord).filter(ScanRecord.scan_id == scan_id).first()
+    if not record:
         raise HTTPException(status_code=404, detail="Scan non trouvé")
-    
-    del scans_storage[scan_id]
+    db.delete(record)
+    db.commit()
     return {"success": True, "message": "Scan supprimé"}
 
 

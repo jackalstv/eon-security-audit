@@ -7,6 +7,7 @@ pydantic-settings>=2.3.0
 # Base de données
 sqlalchemy>=2.0.25
 alembic>=1.13.1
+psycopg2-binary>=2.9.9
 
 # Analyseurs DNS
 dnspython>=2.5.0
