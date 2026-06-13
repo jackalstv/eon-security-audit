@@ -1,230 +1,524 @@
-/**
- * ÉON - Frontend JavaScript
- * Gère les interactions avec l'API backend
- */
+'use strict';
 
-const API_BASE_URL = `http://${window.location.hostname}:8000/api/v1`;
+const API = `http://${window.location.hostname}:8000/api/v1`;
 
-// État de l'application
-let currentScanId = null;
+// ── State ─────────────────────────────────────────────────────────────────────
+const S = {
+  page: 'scan',       // 'scan' | 'loading' | 'results' | 'history'
+  result: null,
+  scanId: null,
+  online: false,
+  collapsed: false,
+  expanded: new Set(),
+  loadingDomain: '',
+  loadingDone: [],
+  loadingTimer: null,
+  history: null,
+};
 
-document.getElementById('scanForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+// ── SVG icons ─────────────────────────────────────────────────────────────────
+const IC = {
+  search:    `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>`,
+  clock:     `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+  extLink:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>`,
+  download:  `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+  refresh:   `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`,
+  shield:    `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+  alert:     `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+  check:     `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`,
+  chevDown:  `<svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>`,
+  chevLeft:  `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>`,
+  chevRight: `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>`,
+  dot:       `<svg width="8" height="8" viewBox="0 0 8 8"><circle cx="4" cy="4" r="4" fill="currentColor"/></svg>`,
+  xCircle:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+  modules:   `<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+};
 
-    const domain = document.getElementById('domain').value.trim();
-    const includeSubdomains = document.getElementById('includeSubdomains').checked;
+// ── Severity / score helpers ──────────────────────────────────────────────────
+const SEV_MAP = {
+  critical: { color: '#dc2626', bg: 'rgba(220,38,38,.12)',  label: 'CRITIQUE', emoji: '🔴' },
+  high:     { color: '#ea580c', bg: 'rgba(234,88,12,.12)',  label: 'ÉLEVÉ',    emoji: '🟠' },
+  medium:   { color: '#d97706', bg: 'rgba(217,119,6,.12)', label: 'MOYEN',    emoji: '🟡' },
+  low:      { color: '#2563eb', bg: 'rgba(37,99,235,.12)', label: 'FAIBLE',   emoji: '🔵' },
+  info:     { color: '#71717a', bg: 'rgba(113,113,122,.12)', label: 'INFO',    emoji: '⚪' },
+};
 
-    showLoading();
+function sv(s)    { return SEV_MAP[s] || SEV_MAP.info; }
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/scan`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                domain: domain,
-                include_subdomains: includeSubdomains
-            })
-        });
-
-        if (!response.ok) {
-            const errData = await response.json();
-            const msg = errData.detail?.[0]?.msg || errData.detail || 'Erreur lors du scan';
-            showError(msg);
-            return;
-        }
-
-        const data = await response.json();
-
-        if (data.success) {
-            currentScanId = data.scan_id;
-            displayResults(data.result);
-        } else {
-            showError(data.error || 'Erreur lors du scan');
-        }
-
-    } catch (error) {
-        console.error('Erreur:', error);
-        showError('Impossible de se connecter au serveur. Vérifiez que le backend est lancé.');
-    } finally {
-        hideLoading();
-    }
-});
-
-/**
- * Affiche les résultats du scan
- */
-function displayResults(result) {
-    document.getElementById('resultsSection').classList.remove('hidden');
-
-    document.getElementById('overallScore').textContent = result.overall_score;
-    document.getElementById('platformDetected').textContent = `Plateforme: ${result.platform}`;
-
-    const modulesContainer = document.getElementById('modulesResults');
-    modulesContainer.innerHTML = '';
-
-    if (result.modules && result.modules.length > 0) {
-        result.modules.forEach(module => {
-            modulesContainer.innerHTML += createModuleCard(module);
-        });
-    } else {
-        modulesContainer.innerHTML = `
-            <div class="text-center py-8 text-purple-300">
-                <p>Aucun module exécuté pour le moment.</p>
-                <p class="text-sm mt-2">Le scan est en cours de développement.</p>
-            </div>
-        `;
-    }
-
-    document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+function scoreInfo(n) {
+  if (n < 40) return { label: 'CRITIQUE',  color: '#dc2626' };
+  if (n < 60) return { label: 'ÉLEVÉ',     color: '#ea580c' };
+  if (n < 75) return { label: 'MOYEN',     color: '#d97706' };
+  if (n < 85) return { label: 'BON',       color: '#2563eb' };
+  return             { label: 'EXCELLENT', color: '#16a34a' };
 }
 
-/**
- * Crée une card pour un module
- */
-function createModuleCard(module) {
-    const severityColors = {
-        critical: 'border-red-500 bg-red-950/30',
-        high: 'border-orange-500 bg-orange-950/30',
-        medium: 'border-yellow-500 bg-yellow-950/30',
-        low: 'border-blue-500 bg-blue-950/30',
-        info: 'border-purple-500 bg-purple-950/30'
-    };
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+       + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
 
-    const statusIcons = {
-        success: '✅',
-        warning: '⚠️',
-        error: '❌',
-        info: 'ℹ️'
-    };
+function capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : '—'; }
 
-    const colorClass = severityColors[module.severity] || severityColors.info;
-    const icon = statusIcons[module.status] || 'ℹ️';
+function h(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-    return `
-        <div class="border ${colorClass} rounded-lg p-6 backdrop-blur-sm">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <h4 class="text-lg font-semibold flex items-center gap-2">
-                        ${icon} ${module.module_name}
-                    </h4>
-                    <p class="text-sm text-purple-300 mt-1">Score: ${module.score}/100</p>
-                </div>
-                <span class="px-3 py-1 rounded-full text-xs font-semibold ${getSeverityBadgeClass(module.severity)}">
-                    ${module.severity.toUpperCase()}
-                </span>
-            </div>
+function fmtVal(v) {
+  if (v === null || v === undefined) return '—';
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
+  if (typeof v === 'object') return JSON.stringify(v).slice(0, 120);
+  if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+  return String(v);
+}
 
-            ${module.recommendations && module.recommendations.length > 0 ? `
-                <div class="mt-4">
-                    <p class="text-sm font-semibold mb-2 text-purple-200">Recommandations:</p>
-                    <ul class="space-y-1 text-sm text-purple-300">
-                        ${module.recommendations.map(rec => `<li>• ${rec}</li>`).join('')}
-                    </ul>
-                </div>
-            ` : ''}
+// ── API calls ─────────────────────────────────────────────────────────────────
+async function apiHealth() {
+  try {
+    const r = await fetch(`http://${window.location.hostname}:8000/health`,
+                         { signal: AbortSignal.timeout(3000) });
+    S.online = r.ok;
+  } catch { S.online = false; }
+  const dot = document.getElementById('s-dot');
+  const lbl = document.getElementById('s-lbl');
+  if (dot) dot.style.color = S.online ? '#16a34a' : '#dc2626';
+  if (lbl) lbl.textContent  = S.online ? 'En ligne' : 'Hors ligne';
+}
+
+async function apiScan(domain, sub) {
+  const r = await fetch(`${API}/scan`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain, include_subdomains: sub }),
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    const msg = (e.detail?.[0]?.msg || e.detail || 'Erreur serveur').replace(/^Value error,\s*/i, '');
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+async function apiHistory() {
+  try {
+    const r = await fetch(`${API}/history?limit=30`);
+    if (!r.ok) return [];
+    const d = await r.json();
+    return d.scans || [];
+  } catch { return []; }
+}
+
+async function apiLoadScan(scanId) {
+  const r = await fetch(`${API}/scan/${scanId}`);
+  if (!r.ok) throw new Error('Scan introuvable');
+  return r.json();
+}
+
+async function downloadPDF() {
+  if (!S.scanId) return;
+  const btn = document.getElementById('btn-pdf');
+  if (btn) { btn.disabled = true; btn.innerHTML = `${IC.download} Génération...`; }
+  try {
+    const r = await fetch(`${API}/scan/${S.scanId}/pdf`);
+    if (!r.ok) throw new Error('Erreur génération PDF');
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    const cd = r.headers.get('Content-Disposition') || '';
+    a.download = (cd.match(/filename="(.+?)"/) || [])[1] || `rapport-eon-${S.result?.domain}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) { showError(e.message); }
+  finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = `${IC.download} Télécharger le rapport`; }
+  }
+}
+
+// ── Error banner ──────────────────────────────────────────────────────────────
+function showError(msg) {
+  document.getElementById('err-slot')?.remove();
+  const el = document.createElement('div');
+  el.id = 'err-slot'; el.className = 'error-banner';
+  el.innerHTML = `${IC.xCircle} <span>${h(msg)}</span>
+    <button class="error-close" onclick="this.parentElement.remove()">✕</button>`;
+  document.querySelector('.main-content')?.prepend(el);
+}
+
+// ── Module names for loading animation ────────────────────────────────────────
+const MOD_NAMES = [
+  'DNS Security', 'SSL/TLS Security', 'Security Headers',
+  'Email Security', 'Subdomain Takeover', 'Domain Expiration', 'OSINT Breaches',
+];
+
+// ── HTML builders ─────────────────────────────────────────────────────────────
+function buildSidebar() {
+  const c = S.collapsed;
+  const nav = (id, icon, label, href) => {
+    const active = S.page === id || (S.page === 'results' && id === 'scan');
+    if (href) return `<a href="${href}" target="_blank" class="nav-item">${icon}${c ? '' : `<span>${label}</span>`}</a>`;
+    return `<button class="nav-item ${active ? 'active' : ''}" data-nav="${id}">${icon}${c ? '' : `<span>${label}</span>`}</button>`;
+  };
+  return `
+  <aside class="sidebar ${c ? 'collapsed' : ''}">
+    <div class="sb-logo">
+      <div class="logo-icon">É</div>
+      ${c ? '' : '<span class="logo-text">ÉON</span>'}
+    </div>
+    <nav class="sb-nav">
+      ${nav('scan',    IC.search,  'Nouveau Scan')}
+      ${nav('history', IC.clock,   'Historique')}
+      ${nav('api',     IC.extLink, 'API Docs', `http://${window.location.hostname}:8000/api/docs`)}
+    </nav>
+    <div class="sb-footer">
+      <div class="status-row">
+        <span id="s-dot" class="status-dot" style="color:${S.online ? '#16a34a' : '#dc2626'}">${IC.dot}</span>
+        ${c ? '' : `<span id="s-lbl" class="status-label">${S.online ? 'En ligne' : 'Hors ligne'}</span>`}
+      </div>
+      ${c ? '' : '<p class="esgi-label">ESGI M1 · 2025-2026</p>'}
+      <button class="collapse-btn" data-action="sidebar">${c ? IC.chevRight : IC.chevLeft}</button>
+    </div>
+  </aside>`;
+}
+
+function buildScan() {
+  return `
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Nouveau Scan</h1>
+      <p class="page-subtitle">Analyse passive · 7 modules · Score /100</p>
+    </div>
+  </div>
+  <div class="scan-wrap">
+    <div class="scan-card">
+      <form id="scan-form">
+        <label class="input-label">Nom de domaine</label>
+        <input id="domain-inp" class="domain-input" type="text"
+               placeholder="exemple.com" autocomplete="off" spellcheck="false" required>
+        <div class="toggle-wrap">
+          <input type="checkbox" class="toggle" id="sub-tog" checked>
+          <label class="toggle-track" for="sub-tog"><div class="toggle-thumb"></div></label>
+          <label class="toggle-label" for="sub-tog">Inclure les sous-domaines</label>
         </div>
-    `;
+        <button type="submit" class="btn btn-primary full">
+          ${IC.search} Lancer l'audit →
+        </button>
+      </form>
+      <div class="pills">
+        <span class="pill">7 modules</span>
+        <span class="pill">100% passif</span>
+        <span class="pill">Légal</span>
+      </div>
+    </div>
+  </div>`;
 }
 
-/**
- * Retourne la classe CSS pour le badge de sévérité
- */
-function getSeverityBadgeClass(severity) {
-    const classes = {
-        critical: 'bg-red-600 text-white',
-        high: 'bg-orange-600 text-white',
-        medium: 'bg-yellow-600 text-black',
-        low: 'bg-blue-600 text-white',
-        info: 'bg-purple-600 text-white'
-    };
-    return classes[severity] || classes.info;
+function buildLoading() {
+  const done = S.loadingDone;
+  return `
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Analyse en cours…</h1>
+      <p class="page-subtitle mono">${h(S.loadingDomain)}</p>
+    </div>
+  </div>
+  <div class="loading-wrap">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p class="loading-domain">${h(S.loadingDomain)}</p>
+      <div class="mod-loading">
+        ${MOD_NAMES.map((name, i) => {
+          const isDone   = done.includes(i);
+          const isActive = !isDone && done.length === i;
+          return `<div class="mod-row ${isDone ? 'done' : isActive ? 'active' : ''}">
+            <span class="mod-icon">${isDone ? IC.check : isActive ? '<span class="spin-sm">⟳</span>' : '·'}</span>
+            <span>${h(name)}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
 }
 
-/**
- * Affiche l'état de chargement
- */
-function showLoading() {
-    document.getElementById('loadingState').classList.remove('hidden');
-    document.getElementById('resultsSection').classList.add('hidden');
+function buildResults() {
+  const r  = S.result;
+  const si = scoreInfo(r.overall_score);
+  const cnt = { critical: 0, high: 0, medium: 0, low: 0 };
+  r.modules.forEach(m => { if (cnt[m.severity] !== undefined) cnt[m.severity]++; });
+
+  const sevOrder = ['critical', 'high', 'medium', 'low', 'info'];
+  const allRecs = r.modules
+    .flatMap(m => m.recommendations.map(rec => ({ mod: m.module_name, sev: m.severity, rec })))
+    .sort((a, b) => sevOrder.indexOf(a.sev) - sevOrder.indexOf(b.sev));
+
+  return `
+  <div class="page-header results-hdr">
+    <div class="res-title">
+      <h1 class="page-title mono">${h(r.domain)}</h1>
+      <span class="plat-badge">${h(capFirst(r.platform))}</span>
+    </div>
+    <div class="res-actions">
+      <span class="ts-text">${h(fmtDate(r.timestamp))}</span>
+      <button id="btn-pdf" class="btn btn-primary" data-action="pdf">
+        ${IC.download} Télécharger le rapport
+      </button>
+      <button class="btn btn-ghost" data-nav="scan">
+        ${IC.refresh} Nouveau scan
+      </button>
+    </div>
+  </div>
+
+  <div class="stat-cards">
+    <div class="stat-card">
+      <div class="stat-ico" style="background:${si.color}20;color:${si.color}">${IC.shield}</div>
+      <div class="stat-body">
+        <p class="stat-lbl">Score global</p>
+        <p class="stat-val" style="color:${si.color}">${r.overall_score}<span class="stat-sub">/100</span></p>
+        <span class="stat-tag" style="background:${si.color}20;color:${si.color}">${si.label}</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ico" style="background:rgba(220,38,38,.12);color:#dc2626">${IC.xCircle}</div>
+      <div class="stat-body">
+        <p class="stat-lbl">Critiques</p>
+        <p class="stat-val" style="color:#dc2626">${cnt.critical}</p>
+        <p class="stat-hint">modules critiques</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ico" style="background:rgba(234,88,12,.12);color:#ea580c">${IC.alert}</div>
+      <div class="stat-body">
+        <p class="stat-lbl">Élevés</p>
+        <p class="stat-val" style="color:#ea580c">${cnt.high}</p>
+        <p class="stat-hint">modules à risque élevé</p>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-ico" style="background:rgba(22,163,74,.12);color:#16a34a">${IC.modules}</div>
+      <div class="stat-body">
+        <p class="stat-lbl">Modules analysés</p>
+        <p class="stat-val" style="color:#16a34a">${r.modules.length}<span class="stat-sub">/7</span></p>
+        <p class="stat-hint">modules exécutés</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="res-cols">
+    <!-- Left: modules -->
+    <div>
+      <p class="sec-title">Modules de sécurité</p>
+      <div class="mod-list">
+        ${r.modules.map((m, i) => {
+          const s      = sv(m.severity);
+          const isOpen = S.expanded.has(i);
+          const det    = Object.entries(m.details || {});
+          return `
+          <div class="mod-card ${isOpen ? 'open' : ''}">
+            <button class="mod-btn" data-action="toggle" data-i="${i}">
+              <div class="mod-left">
+                <span class="sev-dot" style="color:${s.color}">${IC.dot}</span>
+                <span class="mod-name">${h(m.module_name)}</span>
+              </div>
+              <div class="mod-right">
+                <div class="prog-wrap">
+                  <div class="prog-bar">
+                    <div class="prog-fill" style="width:${m.score}%;background:${s.color}"></div>
+                  </div>
+                </div>
+                <span class="mod-score" style="color:${s.color}">${m.score}/100</span>
+                <span class="sev-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+                <span class="chevron">${IC.chevDown}</span>
+              </div>
+            </button>
+            ${isOpen ? `
+            <div class="mod-detail">
+              ${det.length ? `
+              <div class="det-grid">
+                ${det.map(([k, v]) => `
+                  <div class="det-key">${h(k.replace(/_/g,' '))}</div>
+                  <div class="det-val">${h(fmtVal(v))}</div>`).join('')}
+              </div>` : ''}
+              ${m.recommendations?.length ? `
+              <p class="rec-section-title">Recommandations</p>
+              ${m.recommendations.map(r => `
+                <div class="rec-row">
+                  <span class="rec-arrow" style="color:${s.color}">→</span>
+                  <span>${h(r)}</span>
+                </div>`).join('')}` : ''}
+            </div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Right: action plan -->
+    <div>
+      <p class="sec-title">Actions prioritaires</p>
+      <div class="actions-card">
+        ${allRecs.length === 0
+          ? `<p class="no-actions">Aucune action requise ✓</p>`
+          : allRecs.map(({ mod, sev: sevKey, rec }) => {
+            const s = sv(sevKey);
+            return `
+            <div class="action-item">
+              <div class="action-header">
+                <span class="action-emoji">${s.emoji}</span>
+                <span class="action-module">${h(mod)}</span>
+                <span class="action-badge" style="background:${s.bg};color:${s.color}">${s.label}</span>
+              </div>
+              <p class="action-text">${h(rec)}</p>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  </div>`;
 }
 
-/**
- * Cache l'état de chargement
- */
-function hideLoading() {
-    document.getElementById('loadingState').classList.add('hidden');
+function buildHistory() {
+  const scans = S.history;
+  if (!scans) return `
+    <div class="page-header"><div><h1 class="page-title">Historique</h1></div></div>
+    <div class="loading-wrap"><div class="spinner"></div></div>`;
+
+  if (scans.length === 0) return `
+    <div class="page-header"><div><h1 class="page-title">Historique</h1><p class="page-subtitle">Aucun scan enregistré</p></div></div>
+    <div class="empty-state">
+      <p>Lancez votre premier audit</p>
+      <button class="btn btn-primary" data-nav="scan">${IC.search} Nouveau scan</button>
+    </div>`;
+
+  return `
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Historique</h1>
+      <p class="page-subtitle">${scans.length} scan${scans.length > 1 ? 's' : ''} enregistré${scans.length > 1 ? 's' : ''}</p>
+    </div>
+  </div>
+  <div class="history-list">
+    ${scans.map(sc => {
+      const si = scoreInfo(sc.overall_score);
+      return `
+      <div class="hist-row" data-action="open-scan" data-id="${h(sc.scan_id)}">
+        <div class="hist-left">
+          <span class="hist-domain">${h(sc.domain)}</span>
+          <span class="hist-date">${h(fmtDate(sc.timestamp))}</span>
+        </div>
+        <div class="hist-right">
+          <span class="hist-plat">${h(capFirst(sc.platform))}</span>
+          <span class="hist-score" style="color:${si.color}">${sc.overall_score}/100</span>
+          <span class="sev-badge" style="background:${si.color}20;color:${si.color}">${si.label}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
-/**
- * Affiche une erreur
- */
-function showError(message) {
-    // Nettoyer le préfixe pydantic "Value error, " si présent
-    const cleanMessage = message.replace(/^Value error,\s*/i, '');
-    alert(`Erreur: ${cleanMessage}`);
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  let pageHtml = '';
+  switch (S.page) {
+    case 'scan':    pageHtml = buildScan();    break;
+    case 'loading': pageHtml = buildLoading(); break;
+    case 'results': pageHtml = buildResults(); break;
+    case 'history': pageHtml = buildHistory(); break;
+  }
+
+  document.getElementById('app').innerHTML = `
+    ${buildSidebar()}
+    <div class="main${S.collapsed ? ' collapsed' : ''}">
+      <div class="main-content">${pageHtml}</div>
+    </div>`;
+
+  // Re-attach scan form submit
+  document.getElementById('scan-form')?.addEventListener('submit', onScanSubmit);
 }
 
-/**
- * Réinitialise le formulaire
- */
-function resetForm() {
-    document.getElementById('scanForm').reset();
-    document.getElementById('resultsSection').classList.add('hidden');
-    currentScanId = null;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+// ── Handlers ──────────────────────────────────────────────────────────────────
+async function onScanSubmit(e) {
+  e.preventDefault();
+  const domain = document.getElementById('domain-inp')?.value.trim();
+  const sub    = document.getElementById('sub-tog')?.checked ?? true;
+  if (!domain) return;
+
+  S.page = 'loading'; S.loadingDomain = domain; S.loadingDone = [];
+  render();
+
+  // Animate module indicators
+  let idx = 0;
+  S.loadingTimer = setInterval(() => {
+    S.loadingDone = [...Array(++idx).keys()];
+    const rows = document.querySelectorAll('.mod-row');
+    rows.forEach((row, i) => {
+      if (i < idx) {
+        row.className = 'mod-row done';
+        row.querySelector('.mod-icon').innerHTML = IC.check;
+      } else if (i === idx) {
+        row.className = 'mod-row active';
+        row.querySelector('.mod-icon').innerHTML = '<span class="spin-sm">⟳</span>';
+      }
+    });
+    if (idx >= MOD_NAMES.length) clearInterval(S.loadingTimer);
+  }, 1300);
+
+  try {
+    const data = await apiScan(domain, sub);
+    clearInterval(S.loadingTimer);
+    if (data.success) {
+      S.result = data.result; S.scanId = data.scan_id;
+      S.page = 'results'; S.expanded = new Set();
+      render();
+    }
+  } catch (err) {
+    clearInterval(S.loadingTimer);
+    S.page = 'scan'; render();
+    showError(err.message);
+  }
 }
 
-/**
- * Télécharge le rapport PDF du scan courant
- */
-async function exportPDF() {
-    if (!currentScanId) {
-        alert('Aucun scan à exporter');
-        return;
+// Global delegation
+document.addEventListener('click', async (e) => {
+  const el = e.target.closest('[data-action],[data-nav]');
+  if (!el) return;
+
+  const action = el.dataset.action;
+  const nav    = el.dataset.nav;
+
+  if (nav) {
+    clearInterval(S.loadingTimer);
+    S.page = nav; S.expanded = new Set();
+    if (nav === 'history') { S.history = null; render(); S.history = await apiHistory(); }
+    render();
+    return;
+  }
+
+  switch (action) {
+    case 'sidebar':
+      S.collapsed = !S.collapsed; render(); break;
+
+    case 'toggle': {
+      const i = parseInt(el.dataset.i, 10);
+      S.expanded.has(i) ? S.expanded.delete(i) : S.expanded.add(i);
+      render(); break;
     }
 
-    const btn = document.querySelector('button[onclick="exportPDF()"]');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '⏳ Génération en cours...';
-    btn.disabled = true;
+    case 'pdf':
+      await downloadPDF(); break;
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/scan/${currentScanId}/pdf`);
-        if (!response.ok) {
-            throw new Error('Erreur lors de la génération du rapport');
+    case 'open-scan': {
+      try {
+        const data = await apiLoadScan(el.dataset.id);
+        if (data.success) {
+          S.result = data.result; S.scanId = el.dataset.id;
+          S.page = 'results'; S.expanded = new Set(); render();
         }
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const cd = response.headers.get('Content-Disposition') || '';
-        const match = cd.match(/filename="(.+?)"/);
-        a.download = match ? match[1] : `rapport-eon-${currentScanId}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-    } catch (error) {
-        alert('Erreur lors de la génération du PDF : ' + error.message);
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
+      } catch (err) { showError(err.message); }
+      break;
     }
-}
-
-/**
- * Vérifier la connexion au backend au chargement
- */
-window.addEventListener('DOMContentLoaded', async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
-        if (response.ok) {
-            console.log('✅ Backend connecté');
-        }
-    } catch (error) {
-        console.warn('⚠️ Backend non disponible:', error.message);
-        console.log('💡 Lancez le backend avec: cd backend && python main.py');
-    }
+  }
 });
+
+// ── Boot ──────────────────────────────────────────────────────────────────────
+render();
+apiHealth();
+setInterval(apiHealth, 30_000);
