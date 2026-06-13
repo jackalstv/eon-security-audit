@@ -1,7 +1,34 @@
 
-import whois
+import whois  # type: ignore[import-untyped]
 from datetime import datetime, timezone
+from typing import Optional
+from dateutil import parser as dateutil_parser
 from api.models import ModuleResult, SeverityLevel
+
+
+def _parse_expiration_date(raw) -> Optional[datetime]:
+    """Normalise la date d'expiration en datetime UTC-aware, quelle que soit la forme retournée par python-whois."""
+    if isinstance(raw, list):
+        # Prendre la première valeur non-None de la liste
+        candidates = [x for x in raw if x is not None]
+        if not candidates:
+            return None
+        raw = candidates[0]
+
+    if raw is None:
+        return None
+
+    # python-whois retourne parfois une string pour certains TLDs
+    if isinstance(raw, str):
+        try:
+            raw = dateutil_parser.parse(raw)
+        except (ValueError, OverflowError):
+            return None
+
+    # Normaliser en UTC
+    if raw.tzinfo is None:
+        return raw.replace(tzinfo=timezone.utc)
+    return raw.astimezone(timezone.utc)
 
 
 def analyze_domain_expiration(domain: str) -> ModuleResult:
@@ -11,11 +38,7 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
         recommendations = []
 
         w = whois.whois(domain)
-        expiration_date = w.expiration_date
-
-        # python-whois peut retourner une liste si plusieurs dates
-        if isinstance(expiration_date, list):
-            expiration_date = expiration_date[0]
+        expiration_date = _parse_expiration_date(w.expiration_date)
 
         if expiration_date is None:
             return ModuleResult(
@@ -29,11 +52,7 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
                 ]
             )
 
-        # Normaliser en datetime UTC naive pour la comparaison
-        if expiration_date.tzinfo is not None:
-            expiration_date = expiration_date.astimezone(timezone.utc).replace(tzinfo=None)
-
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         days_remaining = (expiration_date - now).days
 
         details["expiration_date"] = expiration_date.strftime("%Y-%m-%d")

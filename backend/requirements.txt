@@ -19,6 +19,7 @@ certifi>=2023.11.17
 
 # Security Headers
 python-whois>=0.8.0
+python-dateutil>=2.8.2
 
 # OSINT
 aiohttp>=3.9.1
