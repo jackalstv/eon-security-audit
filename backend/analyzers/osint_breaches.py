@@ -101,10 +101,9 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
                         "activer le MFA et alerter les utilisateurs concernés."
                     )
         else:
-            details["emails_compromis"] = "non vérifié (HIBP_API_KEY non configurée)"
+            details["emails_compromis"] = "non vérifié (clé API non configurée)"
             recommendations.append(
-                "Configurer HIBP_API_KEY dans .env pour vérifier les fuites d'emails du domaine. "
-                "Clé disponible sur haveibeenpwned.com/API/Key"
+                "Configurer HIBP_API_KEY dans .env pour activer le scan avancé des fuites d'emails du domaine."
             )
 
         # Calcul du score
