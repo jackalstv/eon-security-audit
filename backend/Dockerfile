@@ -1,14 +1,12 @@
 FROM python:3.11-slim
 
-# WeasyPrint system dependencies
+# WeasyPrint system dependencies (pydyf-based, Pango only)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
-    libcairo2 \
-    libffi-dev \
-    libgdk-pixbuf2.0-0 \
-    shared-mime-info \
+    libharfbuzz0b \
+    libfontconfig1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
