@@ -8,32 +8,33 @@ from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
     HRFlowable, PageBreak, KeepTogether,
 )
-from reportlab.graphics.shapes import Drawing, Rect, String as RLS, Circle
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.graphics.shapes import Drawing, Rect, String as RLS, Circle, Line
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
 from api.models import ScanResult
 
 PAGE_W, PAGE_H = A4
 MARGIN = 2 * cm
-CW = PAGE_W - 2 * MARGIN  # ~481.89 pt
+CW = PAGE_W - 2 * MARGIN
 
-# Palette
-C_PURPLE   = colors.HexColor('#8B5CF6')
+# Neutral palette — colors only for severity text/accents, never for backgrounds
+C_INK     = colors.HexColor('#111827')   # titles, strong text
+C_BODY    = colors.HexColor('#374151')   # body text
+C_MUTED   = colors.HexColor('#6B7280')   # labels, captions
+C_LIGHT   = colors.HexColor('#F3F4F6')   # card backgrounds, table stripes
+C_BORDER  = colors.HexColor('#E5E7EB')   # borders, separators
+C_WHITE   = colors.white
+
+# Severity — text/accent only
 C_CRITICAL = colors.HexColor('#DC2626')
 C_HIGH     = colors.HexColor('#EA580C')
 C_MEDIUM   = colors.HexColor('#D97706')
 C_LOW      = colors.HexColor('#2563EB')
 C_GOOD     = colors.HexColor('#16A34A')
-C_GREY     = colors.HexColor('#6B7280')
-C_LGREY    = colors.HexColor('#F3F4F6')
-C_DARK     = colors.HexColor('#111827')
-C_SUBTLE   = colors.HexColor('#4B5563')
-C_WHITE    = colors.white
 
-# Hex strings for inline Paragraph coloring
 HX = {
-    'purple': '#8B5CF6', 'critical': '#DC2626', 'high': '#EA580C',
-    'medium': '#D97706', 'low': '#2563EB', 'good': '#16A34A', 'grey': '#6B7280',
+    'critical': '#DC2626', 'high': '#EA580C', 'medium': '#D97706',
+    'low': '#2563EB', 'good': '#16A34A', 'grey': '#6B7280',
 }
 
 
@@ -62,7 +63,7 @@ def _score_label(score: int) -> str:
 
 def _sev_color(sev: str) -> colors.Color:
     return {'critical': C_CRITICAL, 'high': C_HIGH, 'medium': C_MEDIUM,
-            'low': C_LOW, 'info': C_GREY}.get(sev, C_GREY)
+            'low': C_LOW, 'info': C_MUTED}.get(sev, C_MUTED)
 
 def _sev_hex(sev: str) -> str:
     return {'critical': HX['critical'], 'high': HX['high'], 'medium': HX['medium'],
@@ -92,32 +93,90 @@ def _fmt_value(v) -> str:
 
 # ── Drawings ──────────────────────────────────────────────────────────────────
 
-def _draw_score_circle(score: int, size: float = 130) -> Drawing:
+def _draw_score_ring(score: int, size: float = 120) -> Drawing:
+    """Thin colored ring with score number — clean, minimal."""
     d = Drawing(size, size)
     cx = cy = size / 2
     col = _score_color(score)
+    r = size * 0.44
+    ring_w = r * 0.18  # thin ring
 
-    outer = Circle(cx, cy, size * 0.46)
-    outer.fillColor = col
-    outer.strokeColor = None
-    d.add(outer)
+    # Faint gray track
+    track = Circle(cx, cy, r - ring_w / 2)
+    track.fillColor = None
+    track.strokeColor = C_BORDER
+    track.strokeWidth = ring_w
+    d.add(track)
 
-    inner = Circle(cx, cy, size * 0.31)
+    # Colored ring on top
+    ring = Circle(cx, cy, r - ring_w / 2)
+    ring.fillColor = None
+    ring.strokeColor = col
+    ring.strokeWidth = ring_w
+    d.add(ring)
+
+    # White inner fill
+    inner = Circle(cx, cy, r - ring_w - 1)
     inner.fillColor = C_WHITE
     inner.strokeColor = None
     d.add(inner)
 
-    d.add(RLS(cx, cy - size * 0.08, str(score),
-              textAnchor='middle', fontSize=size * 0.25,
-              fontName='Helvetica-Bold', fillColor=col))
-    d.add(RLS(cx, cy - size * 0.25, '/100',
-              textAnchor='middle', fontSize=size * 0.12,
-              fontName='Helvetica', fillColor=C_GREY))
+    # Score number
+    d.add(RLS(cx, cy - size * 0.07, str(score),
+              textAnchor='middle', fontSize=size * 0.22,
+              fontName='Helvetica-Bold', fillColor=C_INK))
+    d.add(RLS(cx, cy - size * 0.23, '/100',
+              textAnchor='middle', fontSize=size * 0.10,
+              fontName='Helvetica', fillColor=C_MUTED))
+    return d
+
+
+def _draw_stat_boxes(counts: dict) -> Drawing:
+    """Severity counts — light card, colored number, neutral label."""
+    items = [
+        (str(counts['critical']), 'CRITIQUE', C_CRITICAL),
+        (str(counts['high']),     'ÉLEVÉ',    C_HIGH),
+        (str(counts['medium']),   'MOYEN',    C_MEDIUM),
+        (str(counts['low']),      'FAIBLE',   C_LOW),
+    ]
+    bh = 1.9 * cm
+    gap = 0.3 * cm
+    bw = (CW - 3 * gap) / 4
+    d = Drawing(CW, bh + 0.2 * cm)
+
+    for idx, (val, lbl, col) in enumerate(items):
+        x = idx * (bw + gap)
+
+        # Light card background
+        bg = Rect(x, 0.1 * cm, bw, bh)
+        bg.fillColor = C_LIGHT
+        bg.strokeColor = C_BORDER
+        bg.strokeWidth = 0.5
+        bg.rx = bg.ry = 3
+        d.add(bg)
+
+        # Thin colored top border
+        top = Rect(x, bh - 0.01 * cm + 0.1 * cm, bw, 0.15 * cm)
+        top.fillColor = col
+        top.strokeColor = None
+        top.rx = top.ry = 3
+        d.add(top)
+
+        # Count number (colored)
+        d.add(RLS(x + bw / 2, bh - 0.45 * cm, val,
+                  textAnchor='middle', fontSize=22,
+                  fontName='Helvetica-Bold', fillColor=col))
+
+        # Label (neutral gray)
+        d.add(RLS(x + bw / 2, 0.28 * cm, lbl,
+                  textAnchor='middle', fontSize=7,
+                  fontName='Helvetica-Bold', fillColor=C_MUTED))
+
     return d
 
 
 def _draw_bars(modules) -> Drawing:
-    row_h = 28
+    row_h = 26
     label_w = 150
     score_w = 55
     bar_w = CW * 0.88 - label_w - score_w
@@ -130,66 +189,49 @@ def _draw_bars(modules) -> Drawing:
         col = _score_color(m.score)
 
         sep = Rect(0, y - 1, width, 0.5)
-        sep.fillColor = C_LGREY
+        sep.fillColor = C_BORDER
         sep.strokeColor = None
         d.add(sep)
 
-        d.add(RLS(0, y + 9, m.module_name[:25],
-                  fontSize=9, fontName='Helvetica', fillColor=C_DARK))
+        d.add(RLS(0, y + 8, m.module_name[:28],
+                  fontSize=9, fontName='Helvetica', fillColor=C_BODY))
 
-        bg = Rect(label_w, y + 4, bar_w, row_h - 12)
-        bg.fillColor = C_LGREY
-        bg.strokeColor = None
-        d.add(bg)
+        # Track
+        track_bg = Rect(label_w, y + 5, bar_w, row_h - 13)
+        track_bg.fillColor = C_LIGHT
+        track_bg.strokeColor = None
+        d.add(track_bg)
 
+        # Progress bar
         fw = max(3.0, bar_w * m.score / 100)
-        bar = Rect(label_w, y + 4, fw, row_h - 12)
+        bar = Rect(label_w, y + 5, fw, row_h - 13)
         bar.fillColor = col
         bar.strokeColor = None
         d.add(bar)
 
-        d.add(RLS(label_w + bar_w + 6, y + 9, f'{m.score}/100',
+        d.add(RLS(label_w + bar_w + 6, y + 8, f'{m.score}/100',
                   fontSize=9, fontName='Helvetica-Bold', fillColor=col))
+
     return d
 
 
-def _draw_header_band() -> Drawing:
-    d = Drawing(CW, 2.2 * cm)
-    bg = Rect(0, 0, CW, 2.2 * cm)
-    bg.fillColor = C_PURPLE
-    bg.strokeColor = None
-    d.add(bg)
-    d.add(RLS(14, 0.65 * cm, 'ÉON',
-              fontSize=26, fontName='Helvetica-Bold', fillColor=C_WHITE))
-    d.add(RLS(CW - 14, 0.75 * cm, 'Audit de Sécurité Automatisé',
-              textAnchor='end', fontSize=10, fontName='Helvetica', fillColor=C_WHITE))
-    return d
+def _draw_page_header(domain: str) -> Drawing:
+    """Minimal top-of-page header: ÉON left, domain right, dark rule below."""
+    h = 1.2 * cm
+    d = Drawing(CW, h)
 
+    d.add(RLS(0, 0.38 * cm, 'ÉON',
+              fontSize=14, fontName='Helvetica-Bold', fillColor=C_INK))
+    d.add(RLS(CW, 0.38 * cm, f'Audit — {domain}',
+              textAnchor='end', fontSize=8,
+              fontName='Helvetica', fillColor=C_MUTED))
 
-def _draw_stat_boxes(counts: dict) -> Drawing:
-    items = [
-        (str(counts['critical']), 'CRITIQUE', C_CRITICAL),
-        (str(counts['high']),     'ÉLEVÉ',    C_HIGH),
-        (str(counts['medium']),   'MOYEN',    C_MEDIUM),
-        (str(counts['low']),      'FAIBLE',   C_LOW),
-    ]
-    bh = 1.9 * cm
-    gap = 0.3 * cm
-    bw = (CW - 3 * gap) / 4
-    d = Drawing(CW, bh + 0.2 * cm)
-    for idx, (val, lbl, col) in enumerate(items):
-        x = idx * (bw + gap)
-        bg = Rect(x, 0.1 * cm, bw, bh)
-        bg.fillColor = col
-        bg.strokeColor = None
-        bg.rx = bg.ry = 4
-        d.add(bg)
-        d.add(RLS(x + bw / 2, bh - 0.3 * cm, val,
-                  textAnchor='middle', fontSize=22,
-                  fontName='Helvetica-Bold', fillColor=C_WHITE))
-        d.add(RLS(x + bw / 2, 0.28 * cm, lbl,
-                  textAnchor='middle', fontSize=7,
-                  fontName='Helvetica-Bold', fillColor=C_WHITE))
+    # Dark rule
+    rule = Rect(0, 0, CW, 1.2)
+    rule.fillColor = C_INK
+    rule.strokeColor = None
+    d.add(rule)
+
     return d
 
 
@@ -197,47 +239,45 @@ def _draw_stat_boxes(counts: dict) -> Drawing:
 
 def _styles() -> dict:
     b = getSampleStyleSheet()
+
     def p(name, **kw):
         return ParagraphStyle(name, parent=b['Normal'], **kw)
+
     return {
-        'h2':          p('h2',  fontName='Helvetica-Bold', fontSize=13, textColor=C_PURPLE,
-                          spaceBefore=12, spaceAfter=5),
-        'body':        p('body', fontName='Helvetica', fontSize=10, textColor=C_DARK,
-                          leading=14, spaceAfter=4),
-        'small':       p('small', fontName='Helvetica', fontSize=8, textColor=C_SUBTLE,
-                          leading=11, spaceAfter=2),
-        # Table header cells
-        'th':          p('th', fontName='Helvetica-Bold', fontSize=9, textColor=C_WHITE,
-                          leading=12),
-        'th_c':        p('th_c', fontName='Helvetica-Bold', fontSize=9, textColor=C_WHITE,
-                          leading=12, alignment=TA_CENTER),
-        # Table body cells
-        'td':          p('td', fontName='Helvetica', fontSize=9, textColor=C_DARK,
-                          leading=12),
-        'td_c':        p('td_c', fontName='Helvetica', fontSize=9, textColor=C_DARK,
-                          leading=12, alignment=TA_CENTER),
-        # Details section
-        'td_key':      p('td_key', fontName='Helvetica-Bold', fontSize=8, textColor=C_SUBTLE,
-                          leading=11),
-        'td_val':      p('td_val', fontName='Helvetica', fontSize=8, textColor=C_DARK,
-                          leading=12),
-        # Action plan recommendation cell
-        'td_rec':      p('td_rec', fontName='Helvetica', fontSize=8, textColor=C_DARK,
-                          leading=12),
-        # Module recommendation bullet
-        'rec':         p('rec', fontName='Helvetica', fontSize=9, textColor=C_DARK,
-                          leading=13, spaceAfter=4, leftIndent=10),
-        # Cover / footer
-        'cover_sub':   p('cover_sub', fontName='Helvetica', fontSize=13,
-                          textColor=C_SUBTLE, alignment=TA_CENTER, spaceAfter=4),
-        'cover_domain':p('cover_domain', fontName='Helvetica-Bold', fontSize=22,
-                          textColor=C_PURPLE, alignment=TA_CENTER, spaceAfter=2),
-        'center_sm':   p('center_sm', fontName='Helvetica', fontSize=8,
-                          textColor=C_SUBTLE, alignment=TA_CENTER),
+        'h2':           p('h2',  fontName='Helvetica-Bold', fontSize=12,
+                           textColor=C_INK, spaceBefore=14, spaceAfter=4),
+        'body':         p('body', fontName='Helvetica', fontSize=10,
+                           textColor=C_BODY, leading=14, spaceAfter=4),
+        'small':        p('small', fontName='Helvetica', fontSize=8,
+                           textColor=C_MUTED, leading=11, spaceAfter=2),
+        'th':           p('th', fontName='Helvetica-Bold', fontSize=9,
+                           textColor=C_WHITE, leading=12),
+        'th_c':         p('th_c', fontName='Helvetica-Bold', fontSize=9,
+                           textColor=C_WHITE, leading=12, alignment=TA_CENTER),
+        'td':           p('td', fontName='Helvetica', fontSize=9,
+                           textColor=C_BODY, leading=12),
+        'td_c':         p('td_c', fontName='Helvetica', fontSize=9,
+                           textColor=C_BODY, leading=12, alignment=TA_CENTER),
+        'td_key':       p('td_key', fontName='Helvetica-Bold', fontSize=8,
+                           textColor=C_MUTED, leading=11),
+        'td_val':       p('td_val', fontName='Helvetica', fontSize=8,
+                           textColor=C_BODY, leading=12),
+        'td_rec':       p('td_rec', fontName='Helvetica', fontSize=8,
+                           textColor=C_BODY, leading=12),
+        'rec':          p('rec', fontName='Helvetica', fontSize=9,
+                           textColor=C_BODY, leading=13, spaceAfter=4, leftIndent=10),
+        'cover_sub':    p('cover_sub', fontName='Helvetica', fontSize=11,
+                           textColor=C_MUTED, alignment=TA_CENTER, spaceAfter=4),
+        'cover_domain': p('cover_domain', fontName='Helvetica-Bold', fontSize=24,
+                           textColor=C_INK, alignment=TA_CENTER, spaceAfter=2),
+        'center_sm':    p('center_sm', fontName='Helvetica', fontSize=8,
+                           textColor=C_MUTED, alignment=TA_CENTER),
+        'center_sm_r':  p('center_sm_r', fontName='Helvetica', fontSize=8,
+                           textColor=C_MUTED, alignment=TA_RIGHT),
     }
 
 
-# ── Base table style ──────────────────────────────────────────────────────────
+# ── Table style ───────────────────────────────────────────────────────────────
 
 def _base_table_style(header: bool = True) -> list:
     s = [
@@ -246,92 +286,96 @@ def _base_table_style(header: bool = True) -> list:
         ('LEFTPADDING',   (0, 0), (-1, -1), 8),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 8),
         ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
-        ('GRID',          (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
-        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [C_LGREY, C_WHITE]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, C_BORDER),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [C_WHITE, C_LIGHT]),
     ]
     if header:
-        s += [('BACKGROUND', (0, 0), (-1, 0), C_PURPLE)]
+        s += [('BACKGROUND', (0, 0), (-1, 0), C_INK)]
     return s
 
 
-# ── Page number footer ────────────────────────────────────────────────────────
+# ── Footer ────────────────────────────────────────────────────────────────────
 
 def _footer(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 8)
-    canvas.setFillColor(C_SUBTLE)
-    canvas.drawCentredString(PAGE_W / 2, 0.7 * cm,
-                             f'ÉON — Rapport d\'Audit de Sécurité  |  Page {canvas.getPageNumber()}')
+    canvas.setFillColor(C_MUTED)
+    canvas.drawCentredString(
+        PAGE_W / 2, 0.7 * cm,
+        f"ÉON — Rapport d'Audit de Sécurité  ·  Page {canvas.getPageNumber()}",
+    )
     canvas.restoreState()
 
 
-# ── Page builders ─────────────────────────────────────────────────────────────
+# ── Pages ─────────────────────────────────────────────────────────────────────
 
 def _cover(result: ScanResult, S: dict) -> list:
     e = []
     col = _score_color(result.overall_score)
 
-    e.append(_draw_header_band())
-    e.append(Spacer(1, 1.8 * cm))
-    e.append(Paragraph("RAPPORT D'AUDIT DE SÉCURITÉ", S['cover_sub']))
-    e.append(Spacer(1, 0.4 * cm))
+    e.append(_draw_page_header(result.domain))
+    e.append(Spacer(1, 2.2 * cm))
+
+    e.append(Paragraph("Rapport d'Audit de Sécurité", S['cover_sub']))
+    e.append(Spacer(1, 0.3 * cm))
     e.append(Paragraph(result.domain, S['cover_domain']))
     e.append(Paragraph(
-        f"Plateforme détectée : <b>{result.platform.value.capitalize()}</b>",
+        f"Plateforme : <b>{result.platform.value.capitalize()}</b>",
         S['center_sm'],
     ))
-    e.append(Spacer(1, 1.5 * cm))
+    e.append(Spacer(1, 1.6 * cm))
 
-    sz = 150
-    ct = Table([[_draw_score_circle(result.overall_score, sz)]], colWidths=[CW])
+    # Score ring centered
+    sz = 140
+    ct = Table([[_draw_score_ring(result.overall_score, sz)]], colWidths=[CW])
     ct.setStyle(TableStyle([('ALIGN', (0, 0), (0, 0), 'CENTER')]))
     e.append(ct)
-    e.append(Spacer(1, 0.2 * cm))
+    e.append(Spacer(1, 0.3 * cm))
 
-    label_d = Drawing(CW, 0.9 * cm)
-    label_d.add(RLS(CW / 2, 0.1 * cm,
+    label_d = Drawing(CW, 0.8 * cm)
+    label_d.add(RLS(CW / 2, 0.12 * cm,
                     f"Niveau de risque global : {_score_label(result.overall_score)}",
-                    textAnchor='middle', fontSize=13,
+                    textAnchor='middle', fontSize=12,
                     fontName='Helvetica-Bold', fillColor=col))
     e.append(label_d)
     e.append(Spacer(1, 1.8 * cm))
 
+    # Metadata table
     meta = [
-        ['Date du scan',      result.timestamp.strftime('%d/%m/%Y à %H:%M')],
-        ['Référence',         result.scan_id[:24] + '…'],
-        ['Modules analysés',  str(len(result.modules))],
-        ['Score global',      f"{result.overall_score}/100 — {_score_label(result.overall_score)}"],
+        ['Date du scan',     result.timestamp.strftime('%d/%m/%Y à %H:%M')],
+        ['Référence',        result.scan_id[:28] + '…'],
+        ['Modules analysés', str(len(result.modules))],
+        ['Score global',     f"{result.overall_score}/100 — {_score_label(result.overall_score)}"],
     ]
-    w_k, w_v = 3.8 * cm, 9 * cm
-    mt = Table(meta, colWidths=[w_k, w_v], hAlign='CENTER')
+    mt = Table(meta, colWidths=[3.8 * cm, 9 * cm], hAlign='CENTER')
     mt.setStyle(TableStyle([
         ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTNAME',      (1, 0), (1, -1), 'Helvetica'),
         ('FONTSIZE',      (0, 0), (-1, -1), 9),
-        ('TEXTCOLOR',     (0, 0), (0, -1), C_SUBTLE),
-        ('TEXTCOLOR',     (1, 0), (1, -1), C_DARK),
-        ('ROWBACKGROUNDS',(0, 0), (-1, -1), [C_LGREY, C_WHITE]),
+        ('TEXTCOLOR',     (0, 0), (0, -1), C_MUTED),
+        ('TEXTCOLOR',     (1, 0), (1, -1), C_BODY),
+        ('ROWBACKGROUNDS',(0, 0), (-1, -1), [C_LIGHT, C_WHITE]),
         ('TOPPADDING',    (0, 0), (-1, -1), 6),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
         ('LEFTPADDING',   (0, 0), (-1, -1), 10),
         ('RIGHTPADDING',  (0, 0), (-1, -1), 10),
-        ('GRID',          (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+        ('GRID',          (0, 0), (-1, -1), 0.5, C_BORDER),
     ]))
     e.append(Table([[mt]], colWidths=[CW]))
-
     e.append(Spacer(1, 2.5 * cm))
-    e.append(HRFlowable(width='100%', thickness=0.5, color=C_LGREY))
+
+    e.append(HRFlowable(width='100%', thickness=0.5, color=C_BORDER))
     e.append(Spacer(1, 0.3 * cm))
-    e.append(Paragraph('Projet M1 Cybersécurité — ESGI 2025-2026 | Document Confidentiel',
-                        S['center_sm']))
+    e.append(Paragraph(
+        'Projet M1 Cybersécurité — ESGI 2025-2026  ·  Document Confidentiel',
+        S['center_sm'],
+    ))
     e.append(PageBreak())
     return e
 
 
 def _summary(result: ScanResult, S: dict) -> list:
     e = []
-    e.append(Paragraph('Résumé Exécutif', S['h2']))
-    e.append(HRFlowable(width='100%', thickness=1, color=C_PURPLE, spaceAfter=10))
 
     counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}
     for m in result.modules:
@@ -339,13 +383,15 @@ def _summary(result: ScanResult, S: dict) -> list:
         if sev in counts:
             counts[sev] += 1
 
+    e.append(Paragraph('Résumé Exécutif', S['h2']))
+    e.append(HRFlowable(width='100%', thickness=1, color=C_BORDER, spaceAfter=10))
     e.append(_draw_stat_boxes(counts))
     e.append(Spacer(1, 0.5 * cm))
 
     for threshold, text in [
         (40,  'La posture de sécurité est <b>critique</b>. Des actions immédiates sont requises.'),
         (60,  'La posture de sécurité présente des <b>risques élevés</b>. Des mesures correctives urgentes sont recommandées.'),
-        (75,  'La posture de sécurité est <b>moyenne</b>. Plusieurs améliorations importantes sont à apporter.'),
+        (75,  'La posture de sécurité est <b>moyenne</b>. Plusieurs améliorations sont à apporter.'),
         (85,  'La posture de sécurité est <b>bonne</b>. Quelques ajustements permettraient d\'atteindre l\'excellence.'),
         (101, 'La posture de sécurité est <b>excellente</b>. Continuez à maintenir ces bonnes pratiques.'),
     ]:
@@ -353,32 +399,22 @@ def _summary(result: ScanResult, S: dict) -> list:
             e.append(Paragraph(text, S['body']))
             break
 
-    e.append(Spacer(1, 0.4 * cm))
-
-    # Module overview table
-    # Widths: name 40%, score 14%, severity 21%, status 25%
-    w1, w2, w3, w4 = CW * 0.40, CW * 0.14, CW * 0.21, CW * 0.25
-
+    e.append(Spacer(1, 0.5 * cm))
     e.append(Paragraph("Vue d'ensemble des modules", S['h2']))
-    e.append(HRFlowable(width='100%', thickness=1, color=C_PURPLE, spaceAfter=8))
+    e.append(HRFlowable(width='100%', thickness=1, color=C_BORDER, spaceAfter=8))
 
+    w1, w2, w3, w4 = CW * 0.40, CW * 0.14, CW * 0.21, CW * 0.25
     rows = [[
-        Paragraph('Module',    S['th']),
-        Paragraph('Score',     S['th_c']),
-        Paragraph('Sévérité',  S['th_c']),
-        Paragraph('Statut',    S['th_c']),
+        Paragraph('Module',   S['th']),
+        Paragraph('Score',    S['th_c']),
+        Paragraph('Sévérité', S['th_c']),
+        Paragraph('Statut',   S['th_c']),
     ]]
     for m in result.modules:
         rows.append([
             Paragraph(m.module_name, S['td']),
-            Paragraph(
-                f'<font color="{_score_hex(m.score)}"><b>{m.score}/100</b></font>',
-                S['td_c'],
-            ),
-            Paragraph(
-                f'<font color="{_sev_hex(m.severity.value)}"><b>{_sev_label(m.severity.value)}</b></font>',
-                S['td_c'],
-            ),
+            Paragraph(f'<font color="{_score_hex(m.score)}"><b>{m.score}/100</b></font>', S['td_c']),
+            Paragraph(f'<font color="{_sev_hex(m.severity.value)}"><b>{_sev_label(m.severity.value)}</b></font>', S['td_c']),
             Paragraph(_status_label(m.status), S['td_c']),
         ])
 
@@ -387,9 +423,8 @@ def _summary(result: ScanResult, S: dict) -> list:
     e.append(tbl)
     e.append(Spacer(1, 0.5 * cm))
 
-    # Bar chart
     e.append(Paragraph('Scores par module', S['h2']))
-    e.append(HRFlowable(width='100%', thickness=1, color=C_PURPLE, spaceAfter=10))
+    e.append(HRFlowable(width='100%', thickness=1, color=C_BORDER, spaceAfter=10))
     bt = Table([[_draw_bars(result.modules)]], colWidths=[CW])
     bt.setStyle(TableStyle([
         ('ALIGN',         (0, 0), (0, 0), 'CENTER'),
@@ -404,7 +439,7 @@ def _summary(result: ScanResult, S: dict) -> list:
 def _module_details(result: ScanResult, S: dict) -> list:
     e = []
     e.append(Paragraph('Analyse Détaillée par Module', S['h2']))
-    e.append(HRFlowable(width='100%', thickness=1, color=C_PURPLE, spaceAfter=4))
+    e.append(HRFlowable(width='100%', thickness=1, color=C_BORDER, spaceAfter=4))
 
     w_key = 4.5 * cm
     w_val = CW - w_key
@@ -414,50 +449,47 @@ def _module_details(result: ScanResult, S: dict) -> list:
         sev_col = _sev_color(m.severity.value)
         block = []
 
-        # Colored header band (Drawing)
-        hd = Drawing(CW, 1.3 * cm)
-        hd_bg = Rect(0, 0, CW, 1.3 * cm)
-        hd_bg.fillColor = C_LGREY
+        # Module header band — light background, colored left accent bar
+        hd = Drawing(CW, 1.2 * cm)
+        hd_bg = Rect(0, 0, CW, 1.2 * cm)
+        hd_bg.fillColor = C_LIGHT
         hd_bg.strokeColor = None
         hd.add(hd_bg)
-        hd_lb = Rect(0, 0, 0.35 * cm, 1.3 * cm)
-        hd_lb.fillColor = col
-        hd_lb.strokeColor = None
-        hd.add(hd_lb)
-        hd.add(RLS(0.6 * cm, 0.38 * cm, m.module_name,
-                   fontSize=11, fontName='Helvetica-Bold', fillColor=C_DARK))
-        hd.add(RLS(CW - 0.3 * cm, 0.65 * cm, f'{m.score}/100',
-                   textAnchor='end', fontSize=13, fontName='Helvetica-Bold',
-                   fillColor=col))
-        hd.add(RLS(CW - 0.3 * cm, 0.18 * cm, _sev_label(m.severity.value),
-                   textAnchor='end', fontSize=8, fontName='Helvetica-Bold',
-                   fillColor=sev_col))
+        accent = Rect(0, 0, 0.3 * cm, 1.2 * cm)
+        accent.fillColor = col
+        accent.strokeColor = None
+        hd.add(accent)
+        hd.add(RLS(0.55 * cm, 0.36 * cm, m.module_name,
+                   fontSize=11, fontName='Helvetica-Bold', fillColor=C_INK))
+        hd.add(RLS(CW - 0.3 * cm, 0.6 * cm, f'{m.score}/100',
+                   textAnchor='end', fontSize=13,
+                   fontName='Helvetica-Bold', fillColor=col))
+        hd.add(RLS(CW - 0.3 * cm, 0.16 * cm, _sev_label(m.severity.value),
+                   textAnchor='end', fontSize=8,
+                   fontName='Helvetica-Bold', fillColor=sev_col))
         block.append(hd)
 
-        # Details key-value table
         if m.details:
             rows = []
             for k, v in m.details.items():
-                val_str = _fmt_value(v)
                 rows.append([
                     Paragraph(k.replace('_', ' ').capitalize(), S['td_key']),
-                    Paragraph(val_str, S['td_val']),
+                    Paragraph(_fmt_value(v), S['td_val']),
                 ])
             if rows:
                 dt = Table(rows, colWidths=[w_key, w_val], hAlign='LEFT')
                 dt.setStyle(TableStyle([
-                    ('ROWBACKGROUNDS', (0, 0), (-1, -1), [C_WHITE, C_LGREY]),
+                    ('ROWBACKGROUNDS', (0, 0), (-1, -1), [C_WHITE, C_LIGHT]),
                     ('TOPPADDING',     (0, 0), (-1, -1), 6),
                     ('BOTTOMPADDING',  (0, 0), (-1, -1), 6),
                     ('LEFTPADDING',    (0, 0), (-1, -1), 8),
                     ('RIGHTPADDING',   (0, 0), (-1, -1), 8),
                     ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
-                    ('GRID',           (0, 0), (-1, -1), 0.5, colors.HexColor('#E5E7EB')),
+                    ('GRID',           (0, 0), (-1, -1), 0.5, C_BORDER),
                 ]))
                 block.append(Spacer(1, 0.2 * cm))
                 block.append(dt)
 
-        # Recommendations
         if m.recommendations:
             block.append(Spacer(1, 0.25 * cm))
             block.append(Paragraph('Recommandations :', S['small']))
@@ -474,7 +506,7 @@ def _module_details(result: ScanResult, S: dict) -> list:
 def _action_plan(result: ScanResult, S: dict) -> list:
     e = []
     e.append(Paragraph("Plan d'Action", S['h2']))
-    e.append(HRFlowable(width='100%', thickness=1, color=C_PURPLE, spaceAfter=6))
+    e.append(HRFlowable(width='100%', thickness=1, color=C_BORDER, spaceAfter=6))
     e.append(Paragraph(
         'Recommandations classées par priorité décroissante. '
         'Traitez en priorité les niveaux CRITIQUE et ÉLEVÉ.',
@@ -490,24 +522,20 @@ def _action_plan(result: ScanResult, S: dict) -> list:
     )
 
     if not all_recs:
-        e.append(Paragraph('Aucune recommandation — excellent résultat !', S['body']))
+        e.append(Paragraph('Aucune recommandation — excellent résultat.', S['body']))
     else:
-        # Widths: priority 15%, module 26%, recommendation 59%
         w_p = CW * 0.15
         w_m = CW * 0.26
         w_r = CW * 0.59
 
         rows = [[
-            Paragraph('Priorité',        S['th_c']),
-            Paragraph('Module',          S['th']),
-            Paragraph('Recommandation',  S['th']),
+            Paragraph('Priorité',       S['th_c']),
+            Paragraph('Module',         S['th']),
+            Paragraph('Recommandation', S['th']),
         ]]
         for sev, module, rec in all_recs:
             rows.append([
-                Paragraph(
-                    f'<font color="{_sev_hex(sev)}"><b>{_sev_label(sev)}</b></font>',
-                    S['td_c'],
-                ),
+                Paragraph(f'<font color="{_sev_hex(sev)}"><b>{_sev_label(sev)}</b></font>', S['td_c']),
                 Paragraph(module, S['td']),
                 Paragraph(rec, S['td_rec']),
             ])
@@ -517,11 +545,11 @@ def _action_plan(result: ScanResult, S: dict) -> list:
         e.append(tbl)
 
     e.append(Spacer(1, 1 * cm))
-    e.append(HRFlowable(width='100%', thickness=0.5, color=C_LGREY))
+    e.append(HRFlowable(width='100%', thickness=0.5, color=C_BORDER))
     e.append(Spacer(1, 0.3 * cm))
     e.append(Paragraph(
         f"Rapport généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')} "
-        f"— ÉON Audit de Sécurité | ESGI 2025-2026",
+        f"— ÉON Audit de Sécurité · ESGI 2025-2026",
         S['center_sm'],
     ))
     return e
@@ -530,7 +558,6 @@ def _action_plan(result: ScanResult, S: dict) -> list:
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_pdf(result: ScanResult) -> bytes:
-    """Génère le rapport PDF complet et retourne les bytes."""
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf,
