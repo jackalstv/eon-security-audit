@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Rapport d'Audit — {{ result.domain }}</title>
+  <style>
+    /* ── Page layout ──────────────────────────────────────────── */
+    @page {
+      size: A4;
+      margin: 18mm 20mm 22mm 20mm;
+      @bottom-center {
+        content: "ÉON  ·  Rapport d'Audit de Sécurité  ·  Page " counter(page) " / " counter(pages);
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 7pt;
+        color: #9CA3AF;
+      }
+    }
+    @page cover {
+      margin: 0;
+      @bottom-center { content: none; }
+    }
+
+    /* ── Reset ────────────────────────────────────────────────── */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 10pt;
+      color: #374151;
+      background: #fff;
+      line-height: 1.4;
+    }
+
+    /* ── Cover ────────────────────────────────────────────────── */
+    .cover {
+      page: cover;
+      break-after: page;
+      display: flex;
+      flex-direction: column;
+      min-height: 297mm;
+    }
+    .cover-header {
+      background: #111827;
+      padding: 18mm 20mm 14mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .cover-brand {
+      font-size: 30pt;
+      font-weight: bold;
+      color: #fff;
+      letter-spacing: 0.06em;
+    }
+    .cover-brand-sub {
+      font-size: 8.5pt;
+      color: #6B7280;
+      margin-top: 4px;
+    }
+    .cover-date {
+      font-size: 8.5pt;
+      color: #6B7280;
+      text-align: right;
+    }
+    .cover-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 14mm 20mm;
+      text-align: center;
+    }
+    .cover-label {
+      font-size: 8.5pt;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      margin-bottom: 10px;
+    }
+    .cover-domain {
+      font-size: 26pt;
+      font-weight: bold;
+      color: #111827;
+      margin-bottom: 5px;
+    }
+    .cover-platform {
+      font-size: 9pt;
+      color: #9CA3AF;
+      margin-bottom: 36px;
+    }
+    .cover-risk {
+      font-size: 12pt;
+      font-weight: bold;
+      margin-bottom: 36px;
+    }
+    .meta-table {
+      border-collapse: collapse;
+      font-size: 9pt;
+      width: 260px;
+    }
+    .meta-table td {
+      padding: 7px 12px;
+      border: 0.5pt solid #E5E7EB;
+      text-align: left;
+    }
+    .meta-table td:first-child {
+      font-weight: bold;
+      color: #6B7280;
+      background: #F9FAFB;
+    }
+    .cover-footer {
+      padding: 7mm 20mm;
+      border-top: 0.5pt solid #E5E7EB;
+      font-size: 8pt;
+      color: #9CA3AF;
+      text-align: center;
+    }
+
+    /* ── Typography ───────────────────────────────────────────── */
+    h2 {
+      font-size: 12pt;
+      font-weight: bold;
+      color: #111827;
+      margin: 20px 0 5px;
+    }
+    hr.rule {
+      border: none;
+      border-top: 0.75pt solid #E5E7EB;
+      margin-bottom: 14px;
+    }
+    p { margin-bottom: 8px; }
+
+    /* ── Page breaks ──────────────────────────────────────────── */
+    .page-break { break-after: page; }
+
+    /* ── Stat boxes ───────────────────────────────────────────── */
+    .stat-grid {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #F9FAFB;
+      border-left: 0.5pt solid #E5E7EB;
+      border-right: 0.5pt solid #E5E7EB;
+      border-bottom: 0.5pt solid #E5E7EB;
+      border-radius: 3px;
+      padding: 14px 8px 10px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 26pt;
+      font-weight: bold;
+      display: block;
+      line-height: 1.05;
+    }
+    .stat-lbl {
+      font-size: 7pt;
+      font-weight: bold;
+      color: #9CA3AF;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    /* ── Tables ───────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+    th {
+      background: #111827;
+      color: #fff;
+      font-size: 8pt;
+      font-weight: bold;
+      padding: 8px;
+      text-align: left;
+    }
+    th.c { text-align: center; }
+    td {
+      padding: 7px 8px;
+      border: 0.5pt solid #E5E7EB;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #F9FAFB; }
+    .c { text-align: center; }
+
+    /* ── Severity badge ───────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 7.5pt;
+      font-weight: bold;
+      padding: 2px 7px;
+      border-radius: 3px;
+      border: 1pt solid;
+    }
+
+    /* ── Score bars ───────────────────────────────────────────── */
+    .bars { margin-top: 4px; }
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .bar-lbl { width: 155px; flex-shrink: 0; font-size: 9pt; color: #374151; }
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: #F3F4F6;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 2px; }
+    .bar-val { width: 52px; text-align: right; font-size: 8.5pt; font-weight: bold; flex-shrink: 0; }
+
+    /* ── Module cards ─────────────────────────────────────────── */
+    .module-card {
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+      border: 0.5pt solid #E5E7EB;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .module-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 12px;
+      background: #F3F4F6;
+    }
+    .module-name { font-size: 11pt; font-weight: bold; color: #111827; }
+    .module-right { text-align: right; }
+    .module-score { font-size: 12pt; font-weight: bold; display: block; }
+    .module-sev { font-size: 7.5pt; font-weight: bold; }
+    .detail-table { margin: 0; }
+    .detail-table td:first-child {
+      font-weight: bold;
+      font-size: 8pt;
+      color: #6B7280;
+      width: 34%;
+      background: #FAFAFA;
+    }
+    .recs { padding: 8px 12px 10px; }
+    .recs-title {
+      font-size: 8pt;
+      font-weight: bold;
+      color: #6B7280;
+      margin-bottom: 5px;
+    }
+    .rec-item {
+      font-size: 8.5pt;
+      color: #374151;
+      padding: 3px 0 3px 10px;
+      border-left: 2px solid #E5E7EB;
+      margin-bottom: 4px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    .doc-footer {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 0.5pt solid #E5E7EB;
+      font-size: 8pt;
+      color: #9CA3AF;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+{# ── COVER ──────────────────────────────────────────────────── #}
+<div class="cover">
+  <div class="cover-header">
+    <div>
+      <div class="cover-brand">ÉON</div>
+      <div class="cover-brand-sub">Audit de Sécurité Automatisé</div>
+    </div>
+    <div class="cover-date">{{ result.timestamp.strftime('%d %B %Y') }}</div>
+  </div>
+
+  <div class="cover-body">
+    <p class="cover-label">Rapport d'Audit de Sécurité</p>
+    <p class="cover-domain">{{ result.domain }}</p>
+    <p class="cover-platform">Plateforme : {{ result.platform.value.capitalize() }}</p>
+
+    {# SVG progress ring #}
+    {% set circ = 314.15 %}
+    {% set arc = ((result.overall_score / 100) * circ)|round(2) %}
+    <svg width="150" height="150" viewBox="0 0 150 150" style="margin-bottom: 14px">
+      <circle cx="75" cy="75" r="50" fill="none" stroke="#E5E7EB" stroke-width="11"/>
+      <circle cx="75" cy="75" r="50" fill="none"
+        stroke="{{ score_color }}" stroke-width="11"
+        stroke-linecap="round"
+        stroke-dasharray="{{ arc }} {{ circ }}"
+        transform="rotate(-90 75 75)"/>
+      <text x="75" y="69" text-anchor="middle"
+        font-family="Helvetica, Arial" font-size="30" font-weight="bold" fill="#111827">{{ result.overall_score }}</text>
+      <text x="75" y="90" text-anchor="middle"
+        font-family="Helvetica, Arial" font-size="12" fill="#9CA3AF">/100</text>
+    </svg>
+
+    <p class="cover-risk" style="color: {{ score_color }}">
+      Niveau de risque global : {{ score_label }}
+    </p>
+
+    <table class="meta-table">
+      <tr><td>Date du scan</td><td>{{ result.timestamp.strftime('%d/%m/%Y à %H:%M') }}</td></tr>
+      <tr><td>Référence</td><td style="font-size:7.5pt; word-break:break-all">{{ result.scan_id[:30] }}…</td></tr>
+      <tr><td>Modules analysés</td><td>{{ result.modules|length }}</td></tr>
+      <tr><td>Score global</td>
+          <td><strong style="color:{{ score_color }}">{{ result.overall_score }}/100 — {{ score_label }}</strong></td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="cover-footer">
+    Projet M1 Cybersécurité — ESGI 2025-2026 &nbsp;·&nbsp; Document Confidentiel
+  </div>
+</div>
+
+{# ── SUMMARY ─────────────────────────────────────────────────── #}
+<h2>Résumé Exécutif</h2>
+<hr class="rule">
+
+<div class="stat-grid">
+  <div class="stat-box" style="border-top: 3px solid #DC2626">
+    <span class="stat-num" style="color:#DC2626">{{ counts.critical }}</span>
+    <span class="stat-lbl">Critique</span>
+  </div>
+  <div class="stat-box" style="border-top: 3px solid #EA580C">
+    <span class="stat-num" style="color:#EA580C">{{ counts.high }}</span>
+    <span class="stat-lbl">Élevé</span>
+  </div>
+  <div class="stat-box" style="border-top: 3px solid #D97706">
+    <span class="stat-num" style="color:#D97706">{{ counts.medium }}</span>
+    <span class="stat-lbl">Moyen</span>
+  </div>
+  <div class="stat-box" style="border-top: 3px solid #2563EB">
+    <span class="stat-num" style="color:#2563EB">{{ counts.low }}</span>
+    <span class="stat-lbl">Faible</span>
+  </div>
+</div>
+
+{% if result.overall_score < 40 %}
+<p>La posture de sécurité est <strong>critique</strong>. Des actions immédiates sont requises.</p>
+{% elif result.overall_score < 60 %}
+<p>La posture présente des <strong>risques élevés</strong>. Des mesures correctives urgentes sont recommandées.</p>
+{% elif result.overall_score < 75 %}
+<p>La posture de sécurité est <strong>moyenne</strong>. Plusieurs améliorations sont à apporter.</p>
+{% elif result.overall_score < 85 %}
+<p>La posture de sécurité est <strong>bonne</strong>. Quelques ajustements permettraient d'atteindre l'excellence.</p>
+{% else %}
+<p>La posture de sécurité est <strong>excellente</strong>. Continuez à maintenir ces bonnes pratiques.</p>
+{% endif %}
+
+<h2>Vue d'ensemble des modules</h2>
+<hr class="rule">
+<table>
+  <thead>
+    <tr>
+      <th>Module</th>
+      <th class="c">Score</th>
+      <th class="c">Sévérité</th>
+      <th class="c">Statut</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for m in result.modules %}
+    {% set mc = m.score|score_color %}
+    {% set sc = m.severity.value|sev_color %}
+    <tr>
+      <td>{{ m.module_name }}</td>
+      <td class="c"><strong style="color:{{ mc }}">{{ m.score }}/100</strong></td>
+      <td class="c">
+        <span class="badge" style="color:{{ sc }}; border-color:{{ sc }}">{{ m.severity.value|sev_label }}</span>
+      </td>
+      <td class="c">
+        {% if m.status == 'success' %}OK
+        {% elif m.status == 'warning' %}Attention
+        {% elif m.status == 'error' %}Erreur
+        {% else %}{{ m.status }}{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2 style="margin-top:22px">Scores par module</h2>
+<hr class="rule">
+<div class="bars">
+  {% for m in result.modules %}
+  {% set mc = m.score|score_color %}
+  <div class="bar-row">
+    <span class="bar-lbl">{{ m.module_name }}</span>
+    <div class="bar-track">
+      <div class="bar-fill" style="width:{{ m.score }}%; background:{{ mc }}"></div>
+    </div>
+    <span class="bar-val" style="color:{{ mc }}">{{ m.score }}/100</span>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="page-break"></div>
+
+{# ── MODULE DETAILS ──────────────────────────────────────────── #}
+<h2>Analyse Détaillée par Module</h2>
+<hr class="rule">
+
+{% for m in result.modules %}
+{% set mc = m.score|score_color %}
+{% set sc = m.severity.value|sev_color %}
+<div class="module-card" style="border-left: 4px solid {{ mc }}">
+  <div class="module-head">
+    <span class="module-name">{{ m.module_name }}</span>
+    <div class="module-right">
+      <span class="module-score" style="color:{{ mc }}">{{ m.score }}/100</span>
+      <span class="module-sev" style="color:{{ sc }}">{{ m.severity.value|sev_label }}</span>
+    </div>
+  </div>
+
+  {% if m.details %}
+  <table class="detail-table">
+    {% for k, v in m.details.items() %}
+    <tr>
+      <td>{{ k.replace('_', ' ').capitalize() }}</td>
+      <td>{{ v|fmt_value }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+
+  {% if m.recommendations %}
+  <div class="recs">
+    <p class="recs-title">Recommandations</p>
+    {% for rec in m.recommendations %}
+    <div class="rec-item">→ {{ rec }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+
+<div class="page-break"></div>
+
+{# ── ACTION PLAN ─────────────────────────────────────────────── #}
+<h2>Plan d'Action</h2>
+<hr class="rule">
+<p style="font-size:9pt; color:#6B7280; margin-bottom:14px">
+  Recommandations classées par priorité décroissante. Traitez en priorité les niveaux CRITIQUE et ÉLEVÉ.
+</p>
+
+{% if all_recs %}
+<table>
+  <thead>
+    <tr>
+      <th class="c" style="width:14%">Priorité</th>
+      <th style="width:25%">Module</th>
+      <th>Recommandation</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for sev, module, rec in all_recs %}
+    {% set sc = sev|sev_color %}
+    <tr>
+      <td class="c"><strong style="color:{{ sc }}">{{ sev|sev_label }}</strong></td>
+      <td>{{ module }}</td>
+      <td>{{ rec }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>Aucune recommandation — excellent résultat.</p>
+{% endif %}
+
+<div class="doc-footer">
+  Rapport généré le {{ generated_at }} — ÉON Audit de Sécurité · ESGI 2025-2026
+</div>
+
+</body>
+</html>
