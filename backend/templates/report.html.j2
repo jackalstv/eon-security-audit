@@ -307,13 +307,13 @@
       <tr><td>Référence</td><td style="font-size:7.5pt; word-break:break-all">{{ result.scan_id[:30] }}…</td></tr>
       <tr><td>Modules analysés</td><td>{{ result.modules|length }}</td></tr>
       <tr><td>Score global</td>
-          <td><strong style="color:{{ score_color }}">{{ result.overall_score }}/100 — {{ score_label }}</strong></td>
+          <td><strong style="color:{{ score_color }}">{{ result.overall_score }}/100 &nbsp; {{ score_label }}</strong></td>
       </tr>
     </table>
   </div>
 
   <div class="cover-footer">
-    Projet M1 Cybersécurité — ESGI 2025-2026 &nbsp;·&nbsp; Document Confidentiel
+    Projet M1 Cybersécurité &nbsp;·&nbsp; ESGI 2025-2026 &nbsp;·&nbsp; Document Confidentiel
   </div>
 </div>
 
@@ -469,11 +469,11 @@
   </tbody>
 </table>
 {% else %}
-<p>Aucune recommandation — excellent résultat.</p>
+<p>Aucune recommandation, excellent résultat.</p>
 {% endif %}
 
 <div class="doc-footer">
-  Rapport généré le {{ generated_at }} — ÉON Audit de Sécurité · ESGI 2025-2026
+  Rapport généré le {{ generated_at }} &nbsp;·&nbsp; ÉON Audit de Sécurité &nbsp;·&nbsp; ESGI 2025-2026
 </div>
 
 </body>
