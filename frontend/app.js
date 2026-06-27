@@ -82,7 +82,7 @@ async function apiHealth() {
   } catch { S.online = false; }
   const dot = document.getElementById('s-dot');
   const lbl = document.getElementById('s-lbl');
-  if (dot) dot.style.color = S.online ? '#16a34a' : '#dc2626';
+  if (dot) dot.style.color = S.online ? '#4ade80' : '#f87171';
   if (lbl) lbl.textContent  = S.online ? 'En ligne' : 'Hors ligne';
 }
 
@@ -163,17 +163,17 @@ function buildSidebar() {
   return `
   <aside class="sidebar ${c ? 'collapsed' : ''}">
     <div class="sb-logo">
-      <div class="logo-icon">É</div>
+      <div class="logo-mark">É</div>
       ${c ? '' : '<span class="logo-text">ÉON</span>'}
     </div>
     <nav class="sb-nav">
-      ${nav('scan',    IC.search,  'Nouveau Scan')}
+      ${nav('scan',    IC.search,  'Nouveau scan')}
       ${nav('history', IC.clock,   'Historique')}
       ${nav('api',     IC.extLink, 'API Docs', `http://${window.location.hostname}:8000/api/docs`)}
     </nav>
     <div class="sb-footer">
       <div class="status-row">
-        <span id="s-dot" class="status-dot" style="color:${S.online ? '#16a34a' : '#dc2626'}">${IC.dot}</span>
+        <span id="s-dot" class="status-dot" style="color:${S.online ? '#4ade80' : '#f87171'}">${IC.dot}</span>
         ${c ? '' : `<span id="s-lbl" class="status-label">${S.online ? 'En ligne' : 'Hors ligne'}</span>`}
       </div>
       ${c ? '' : '<p class="esgi-label">ESGI M1 · 2025-2026</p>'}
@@ -184,32 +184,23 @@ function buildSidebar() {
 
 function buildScan() {
   return `
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Nouveau Scan</h1>
-      <p class="page-subtitle">Analyse passive · 7 modules · Score /100</p>
-    </div>
-  </div>
   <div class="scan-wrap">
-    <div class="scan-card">
+    <p class="scan-hero-title">Audit de sécurité <span>d'un domaine</span></p>
+    <div class="scan-form-wrap">
       <form id="scan-form">
-        <label class="input-label">Nom de domaine</label>
-        <input id="domain-inp" class="domain-input" type="text"
-               placeholder="exemple.com" autocomplete="off" spellcheck="false" required>
-        <div class="toggle-wrap">
-          <input type="checkbox" class="toggle" id="sub-tog" checked>
-          <label class="toggle-track" for="sub-tog"><div class="toggle-thumb"></div></label>
-          <label class="toggle-label" for="sub-tog">Inclure les sous-domaines</label>
+        <div class="search-row">
+          <span class="search-icon">${IC.search}</span>
+          <input id="domain-inp" class="domain-input" type="text"
+                 placeholder="exemple.com" autocomplete="off" spellcheck="false" required>
+          <button type="submit" class="search-submit">Analyser →</button>
         </div>
-        <button type="submit" class="btn btn-primary full">
-          ${IC.search} Lancer l'audit →
-        </button>
       </form>
-      <div class="pills">
-        <span class="pill">7 modules</span>
-        <span class="pill">100% passif</span>
-        <span class="pill">Légal</span>
+      <div class="toggle-wrap">
+        <input type="checkbox" class="toggle" id="sub-tog" checked>
+        <label class="toggle-track" for="sub-tog"><div class="toggle-thumb"></div></label>
+        <label class="toggle-label" for="sub-tog">Inclure les sous-domaines</label>
       </div>
+      <p class="search-hint">7 modules · analyse passive · 100% légal</p>
     </div>
   </div>`;
 }
@@ -271,36 +262,24 @@ function buildResults() {
 
   <div class="stat-cards">
     <div class="stat-card">
-      <div class="stat-ico" style="background:${si.color}20;color:${si.color}">${IC.shield}</div>
-      <div class="stat-body">
-        <p class="stat-lbl">Score global</p>
-        <p class="stat-val" style="color:${si.color}">${r.overall_score}<span class="stat-sub">/100</span></p>
-        <span class="stat-tag" style="background:${si.color}20;color:${si.color}">${si.label}</span>
-      </div>
+      <p class="stat-lbl">Score global</p>
+      <p class="stat-val" style="color:${si.color}">${r.overall_score}<span class="stat-sub">/100</span></p>
+      <span class="stat-tag" style="background:${si.color}18;color:${si.color}">${si.label}</span>
     </div>
     <div class="stat-card">
-      <div class="stat-ico" style="background:rgba(220,38,38,.12);color:#dc2626">${IC.xCircle}</div>
-      <div class="stat-body">
-        <p class="stat-lbl">Critiques</p>
-        <p class="stat-val" style="color:#dc2626">${cnt.critical}</p>
-        <p class="stat-hint">modules critiques</p>
-      </div>
+      <p class="stat-lbl">Critiques</p>
+      <p class="stat-val" style="color:#f87171">${cnt.critical}</p>
+      <p class="stat-hint">modules critiques</p>
     </div>
     <div class="stat-card">
-      <div class="stat-ico" style="background:rgba(234,88,12,.12);color:#ea580c">${IC.alert}</div>
-      <div class="stat-body">
-        <p class="stat-lbl">Élevés</p>
-        <p class="stat-val" style="color:#ea580c">${cnt.high}</p>
-        <p class="stat-hint">modules à risque élevé</p>
-      </div>
+      <p class="stat-lbl">Élevés</p>
+      <p class="stat-val" style="color:#fb923c">${cnt.high}</p>
+      <p class="stat-hint">modules à risque élevé</p>
     </div>
     <div class="stat-card">
-      <div class="stat-ico" style="background:rgba(22,163,74,.12);color:#16a34a">${IC.modules}</div>
-      <div class="stat-body">
-        <p class="stat-lbl">Modules analysés</p>
-        <p class="stat-val" style="color:#16a34a">${r.modules.length}<span class="stat-sub">/7</span></p>
-        <p class="stat-hint">modules exécutés</p>
-      </div>
+      <p class="stat-lbl">Modules</p>
+      <p class="stat-val" style="color:var(--text)">${r.modules.length}<span class="stat-sub">/7</span></p>
+      <p class="stat-hint">modules analysés</p>
     </div>
   </div>
 
