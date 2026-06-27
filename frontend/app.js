@@ -163,7 +163,7 @@ function buildSidebar() {
   return `
   <aside class="sidebar ${c ? 'collapsed' : ''}">
     <div class="sb-logo">
-      <img src="logo.png" class="logo-img" alt="ÉON">
+      <img src="logo.svg" class="logo-img" alt="ÉON">
       ${c ? '' : '<span class="logo-text">ÉON</span>'}
     </div>
     <nav class="sb-nav">
