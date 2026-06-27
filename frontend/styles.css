@@ -37,7 +37,7 @@ body {
 .sidebar.collapsed { width: var(--sc); }
 
 .sb-logo {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
   padding: 16px 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
