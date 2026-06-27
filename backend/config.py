@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     # API Keys (à configurer dans .env)
     HIBP_API_KEY: Optional[str] = None
+    ANTHROPIC_API_KEY: Optional[str] = None
 
     # CORS — toutes les origines possibles du frontend
     CORS_ORIGINS: list = [

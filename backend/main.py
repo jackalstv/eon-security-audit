@@ -6,6 +6,7 @@ import db_models  # noqa: F401 — enregistre les modèles ORM avant create_all
 
 # Import des routes
 from api.routes import router
+from api.chat import router as chat_router
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -47,6 +48,7 @@ async def health_check():
 
 # Inclusion des routes API
 app.include_router(router, prefix="/api/v1")
+app.include_router(chat_router, prefix="/api/v1")
 
 
 if __name__ == "__main__":

@@ -14,6 +14,9 @@ const S = {
   loadingDone: [],
   loadingTimer: null,
   history: null,
+  chatOpen: true,
+  chatMsgs: [],
+  chatStreaming: false,
 };
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
@@ -351,6 +354,47 @@ function buildResults() {
           }).join('')}
       </div>
     </div>
+  </div>
+
+  ${buildChat(r.domain)}`;
+}
+
+function buildChat(domain) {
+  const msgs = S.chatMsgs;
+  return `
+  <div class="chat-section">
+    <div class="chat-hdr" data-action="chat-toggle">
+      <div>
+        <span class="chat-hdr-title">Assistant ÉON</span>
+        <span class="chat-hdr-sub">Posez vos questions sur les résultats</span>
+      </div>
+      <span>${S.chatOpen ? IC.chevDown : IC.chevLeft}</span>
+    </div>
+    ${S.chatOpen ? `
+    <div class="chat-body">
+      <div class="chat-msgs" id="chat-msgs">
+        ${msgs.length === 0
+          ? `<div class="chat-empty">Bonjour ! Posez-moi vos questions sur les résultats de sécurité de <strong>${h(domain)}</strong>.</div>`
+          : msgs.map((msg, i) => {
+              const isLast = i === msgs.length - 1 && msg.role === 'assistant';
+              return `
+              <div class="chat-msg ${msg.role}">
+                <span class="chat-role">${msg.role === 'user' ? 'Vous' : 'ÉON'}</span>
+                <p class="chat-content"${isLast ? ' id="chat-last"' : ''}>${h(msg.content)}</p>
+              </div>`;
+            }).join('')
+        }
+        ${S.chatStreaming && (msgs.length === 0 || msgs[msgs.length-1].role === 'user')
+          ? `<div class="chat-typing"><span></span><span></span><span></span></div>` : ''}
+      </div>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-inp" class="chat-inp" type="text"
+               placeholder="Ex : Comment corriger le problème DNS ?"
+               autocomplete="off" spellcheck="false"
+               ${S.chatStreaming ? 'disabled' : ''}>
+        <button type="submit" class="chat-send" ${S.chatStreaming ? 'disabled' : ''}>→</button>
+      </form>
+    </div>` : ''}
   </div>`;
 }
 
@@ -393,6 +437,69 @@ function buildHistory() {
   </div>`;
 }
 
+// ── Chat ──────────────────────────────────────────────────────────────────────
+async function sendChat(message) {
+  if (!S.scanId || S.chatStreaming) return;
+  const history = [...S.chatMsgs];
+  S.chatMsgs.push({ role: 'user', content: message });
+  S.chatMsgs.push({ role: 'assistant', content: '' });
+  S.chatStreaming = true;
+  render();
+
+  try {
+    const resp = await fetch(`${API}/chat/${S.scanId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history }),
+    });
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}));
+      throw new Error(e.detail || 'Erreur serveur');
+    }
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break;
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.error) throw new Error(parsed.error);
+          S.chatMsgs[S.chatMsgs.length - 1].content += parsed.text;
+          const el = document.getElementById('chat-last');
+          if (el) el.textContent = S.chatMsgs[S.chatMsgs.length - 1].content;
+          const box = document.getElementById('chat-msgs');
+          if (box) box.scrollTop = box.scrollHeight;
+        } catch {}
+      }
+    }
+  } catch (err) {
+    S.chatMsgs.pop();
+    showError(err.message);
+  }
+
+  S.chatStreaming = false;
+  render();
+  setTimeout(() => {
+    const box = document.getElementById('chat-msgs');
+    if (box) box.scrollTop = box.scrollHeight;
+  }, 50);
+}
+
+async function onChatSubmit(e) {
+  e.preventDefault();
+  const inp = document.getElementById('chat-inp');
+  const msg = inp?.value.trim();
+  if (!msg || S.chatStreaming) return;
+  inp.value = '';
+  await sendChat(msg);
+}
+
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   let pageHtml = '';
@@ -409,8 +516,9 @@ function render() {
       <div class="main-content">${pageHtml}</div>
     </div>`;
 
-  // Re-attach scan form submit
+  // Re-attach form listeners
   document.getElementById('scan-form')?.addEventListener('submit', onScanSubmit);
+  document.getElementById('chat-form')?.addEventListener('submit', onChatSubmit);
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -472,6 +580,9 @@ document.addEventListener('click', async (e) => {
   }
 
   switch (action) {
+    case 'chat-toggle':
+      S.chatOpen = !S.chatOpen; render(); break;
+
     case 'sidebar':
       S.collapsed = !S.collapsed; render(); break;
 
