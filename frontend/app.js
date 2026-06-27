@@ -163,7 +163,7 @@ function buildSidebar() {
   return `
   <aside class="sidebar ${c ? 'collapsed' : ''}">
     <div class="sb-logo">
-      <div class="logo-mark">É</div>
+      <img src="logo.png" class="logo-img" alt="ÉON">
       ${c ? '' : '<span class="logo-text">ÉON</span>'}
     </div>
     <nav class="sb-nav">
@@ -185,7 +185,7 @@ function buildSidebar() {
 function buildScan() {
   return `
   <div class="scan-wrap">
-    <p class="scan-hero-title">Audit de sécurité <span>d'un domaine</span></p>
+    <p class="scan-hero-title">Audit de sécurité</p>
     <div class="scan-form-wrap">
       <form id="scan-form">
         <div class="search-row">
