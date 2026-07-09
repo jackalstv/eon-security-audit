@@ -20,13 +20,13 @@ Audit de sécurité passif pour TPE/PME · 9 modules · Score global /100
 | 5 | **Email Security** `email_analyzer.py` | Teste la configuration du serveur mail : enregistrements MX, redondance, chiffrement STARTTLS, bannière SMTP. | Théo |  Fait |
 | 6 | **Subdomain Takeover** `subdomain_takeover_analyzer.py` | Détecte les sous-domaines pointant vers des services abandonnés, potentiellement récupérables par un attaquant. | André |  Fait |
 | **Modules en cours / à implémenter** | | | | |
-| 7 | **Domain Expiration** `domain_expiration.py` | Interroge le WHOIS pour vérifier la date d'expiration du domaine. Alerte si renouvellement urgent (<30 jours). | Théo | fait|
-| 8 | **OSINT Breaches** `osint_breaches.py` | Interroge Have I Been Pwned pour détecter si des emails du domaine ont fuité dans des bases de données piratées. | Théo | 🔧 WIP |
-| 9 | **Questionnaire Posture** `questionnaire.py` | Questionnaire manuel sur les pratiques humaines : MFA, sauvegardes, formation phishing, mises à jour, gestion des accès. | Omar | 🔧 WIP |
+| 7 | **Domain Expiration** `domain_expiration.py` | Interroge le WHOIS pour vérifier la date d'expiration du domaine. Alerte si renouvellement urgent (<30 jours). | Théo | fait |
+| 8 | **OSINT Breaches** `osint_breaches.py` | Interroge Have I Been Pwned pour détecter si des emails du domaine ont fuité dans des bases de données piratées. | Théo | fait |
+| 9 | **Questionnaire Posture** `questionnaire.py` | Questionnaire manuel sur les pratiques humaines : MFA, sauvegardes, formation phishing, mises à jour, gestion des accès. | Théo | fait |
 | **Infrastructure & fonctionnalités transverses** | | | | |
-| — | **Base de données** PostgreSQL | Persistance des résultats de scan. Actuellement en mémoire vive — nécessaire pour l'historique et les exports. | Théo | 🔧 WIP |
-| — | **Export PDF** Rapport client | Génère un rapport structuré (scores, recommandations priorisées, date) exportable pour client ou assureur. | Omar | 🔧 WIP |
-| — | **Historique des scans** Suivi temporel | Conserve les scans passés pour mesurer l'évolution du score dans le temps et détecter les régressions. | Omar | 🔧 WIP |
+| — | **Base de données** PostgreSQL | Persistance des résultats de scan. Actuellement en mémoire vive — nécessaire pour l'historique et les exports. | Théo | fait |
+| — | **Export PDF** Rapport client | Génère un rapport structuré (scores, recommandations priorisées, date) exportable pour client ou assureur. | Théo | fait |
+| — | **Historique des scans** Suivi temporel | Conserve les scans passés pour mesurer l'évolution du score dans le temps et détecter les régressions. | Théo | fait |
 
 > Futur : intégration d'un Chatbot pour que le client puisse comprendre les scores et recommandations à appliquer.
 
