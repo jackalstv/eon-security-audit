@@ -147,8 +147,8 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
                 recommendations.append(
                     f"Aucune fuite connue détectée pour ce domaine dans la base publique HIBP "
                     f"({total_hibp} fuites vérifiées). "
-                    "Le scan des adresses email associées au domaine n'a pas pu être effectué — "
-                    "il nécessite une clé API et la propriété du domaine. "
+                    "Le scan des adresses email associées au domaine n'a pas pu être effectué "
+                    "(clé API et propriété du domaine requises). "
                     "Vous pouvez vérifier manuellement vos adresses sur haveibeenpwned.com."
                 )
 
