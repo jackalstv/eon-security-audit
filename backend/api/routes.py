@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from io import BytesIO
 import uuid
+import json
+import socket
 from datetime import datetime
 
 from api.models import (
@@ -122,6 +125,58 @@ async def start_scan(request: ScanRequest, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur lors du scan: {str(e)}")
+
+
+@router.post("/scan/stream")
+async def start_scan_stream(request: ScanRequest, db: Session = Depends(get_db)):
+    async def generate():
+        try:
+            await run_in_threadpool(socket.getaddrinfo, request.domain, None)
+        except socket.gaierror:
+            yield f"data: {json.dumps({'error': f'Domaine introuvable : {request.domain}'})}\n\n"
+            return
+
+        scan_id = str(uuid.uuid4())
+        platform = await run_in_threadpool(detect_platform, request.domain)
+
+        steps = [
+            ("DNS Security", analyze_dns),
+            ("SSL/TLS Security", analyze_ssl),
+            ("Security Headers", analyze_security_headers),
+            ("Email Security", analyze_email),
+            ("Subdomain Takeover", detect_subdomain_takeover),
+            ("Domain Expiration", analyze_domain_expiration),
+            ("OSINT Breaches", analyze_osint_breaches),
+        ]
+        total = len(steps)
+        modules = []
+
+        for i, (name, fn) in enumerate(steps):
+            yield f"data: {json.dumps({'step': name, 'progress': i, 'total': total})}\n\n"
+            result = await run_in_threadpool(fn, request.domain)
+            modules.append(result)
+
+        overall_score = sum(m.score for m in modules) // len(modules)
+        scan_result = ScanResult(
+            scan_id=scan_id,
+            domain=request.domain,
+            platform=platform,
+            timestamp=datetime.now(),
+            overall_score=overall_score,
+            modules=modules,
+            summary="Scan complété.",
+        )
+        db.add(_result_to_db(scan_id, scan_result))
+        db.commit()
+
+        result_dict = scan_result.model_dump(mode="json")
+        yield f"data: {json.dumps({'done': True, 'scan_id': scan_id, 'result': result_dict})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/scan/{scan_id}/pdf")

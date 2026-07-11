@@ -181,6 +181,18 @@ input[type="checkbox"].toggle:checked + .toggle-track .toggle-thumb { transform:
 .mod-row:last-child { border-bottom: none; }
 .mod-icon { width: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .mod-icon .spin-sm { display: inline-block; animation: spin .6s linear infinite; }
+.scan-progress-wrap { margin: 0 0 20px; }
+.scan-progress-bar {
+  height: 3px; background: var(--border);
+  border-radius: 2px; overflow: hidden;
+}
+.scan-progress-fill {
+  height: 100%; background: #dc2626;
+  border-radius: 2px; transition: width 0.5s ease;
+}
+.scan-progress-info { display: flex; justify-content: space-between; margin-top: 8px; }
+.scan-progress-step { font-size: 11px; color: var(--text-muted); }
+.scan-progress-pct  { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 
 /* ── Buttons ──────────────────────────────────────────────────────────────── */
 .btn {

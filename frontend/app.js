@@ -12,7 +12,8 @@ const S = {
   expanded: new Set(),
   loadingDomain: '',
   loadingDone: [],
-  loadingTimer: null,
+  loadingProgress: 0,
+  loadingStep: '',
   history: null,
   chatOpen: true,
   chatMsgs: [],
@@ -210,6 +211,7 @@ function buildScan() {
 
 function buildLoading() {
   const done = S.loadingDone;
+  const pct  = Math.round((S.loadingProgress / MOD_NAMES.length) * 100);
   return `
   <div class="page-header">
     <div>
@@ -219,8 +221,15 @@ function buildLoading() {
   </div>
   <div class="loading-wrap">
     <div class="loading-card">
-      <div class="spinner"></div>
-      <p class="loading-domain">${h(S.loadingDomain)}</p>
+      <div class="scan-progress-wrap">
+        <div class="scan-progress-bar">
+          <div class="scan-progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div class="scan-progress-info">
+          <span class="scan-progress-step">${h(S.loadingStep || 'Validation du domaine…')}</span>
+          <span class="scan-progress-pct">${pct}%</span>
+        </div>
+      </div>
       <div class="mod-loading">
         ${MOD_NAMES.map((name, i) => {
           const isDone   = done.includes(i);
@@ -528,36 +537,50 @@ async function onScanSubmit(e) {
   const sub    = document.getElementById('sub-tog')?.checked ?? true;
   if (!domain) return;
 
-  S.page = 'loading'; S.loadingDomain = domain; S.loadingDone = [];
+  S.page = 'loading'; S.loadingDomain = domain;
+  S.loadingDone = []; S.loadingProgress = 0; S.loadingStep = '';
   render();
 
-  // Animate module indicators
-  let idx = 0;
-  S.loadingTimer = setInterval(() => {
-    S.loadingDone = [...Array(++idx).keys()];
-    const rows = document.querySelectorAll('.mod-row');
-    rows.forEach((row, i) => {
-      if (i < idx) {
-        row.className = 'mod-row done';
-        row.querySelector('.mod-icon').innerHTML = IC.check;
-      } else if (i === idx) {
-        row.className = 'mod-row active';
-        row.querySelector('.mod-icon').innerHTML = '<span class="spin-sm">⟳</span>';
-      }
-    });
-    if (idx >= MOD_NAMES.length) clearInterval(S.loadingTimer);
-  }, 1300);
-
   try {
-    const data = await apiScan(domain, sub);
-    clearInterval(S.loadingTimer);
-    if (data.success) {
-      S.result = data.result; S.scanId = data.scan_id;
-      S.page = 'results'; S.expanded = new Set();
-      render();
+    const resp = await fetch(`${API}/scan/stream`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, include_subdomains: sub }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      const msg = (err.detail?.[0]?.msg || err.detail || 'Erreur serveur').replace(/^Value error,\s*/i, '');
+      throw new Error(msg);
+    }
+
+    const reader = resp.body.getReader();
+    const dec    = new TextDecoder();
+
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      for (const line of dec.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        let evt;
+        try { evt = JSON.parse(raw); } catch { continue; }
+
+        if (evt.error) throw new Error(evt.error);
+        if (evt.done) {
+          S.result = evt.result; S.scanId = evt.scan_id;
+          S.page = 'results'; S.expanded = new Set(); S.chatMsgs = [];
+          render();
+          break outer;
+        }
+        if (evt.step !== undefined) {
+          S.loadingStep = evt.step;
+          S.loadingProgress = evt.progress;
+          S.loadingDone = [...Array(evt.progress).keys()];
+          render();
+        }
+      }
     }
   } catch (err) {
-    clearInterval(S.loadingTimer);
     S.page = 'scan'; render();
     showError(err.message);
   }
@@ -572,7 +595,6 @@ document.addEventListener('click', async (e) => {
   const nav    = el.dataset.nav;
 
   if (nav) {
-    clearInterval(S.loadingTimer);
     S.page = nav; S.expanded = new Set();
     if (nav === 'history') { S.history = null; render(); S.history = await apiHistory(); }
     render();
