@@ -163,7 +163,6 @@ function buildSidebar() {
     </div>
     <nav class="sb-nav">
       ${nav('scan',    IC.search,  'Nouveau scan')}
-      ${nav('api',     IC.extLink, 'API Docs', `http://${window.location.hostname}:8000/api/docs`)}
     </nav>
     <div class="sb-footer">
       <div class="status-row">
