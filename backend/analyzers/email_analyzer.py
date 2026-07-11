@@ -73,6 +73,12 @@ def analyze_email(domain: str) -> ModuleResult:
             except Exception:
                 score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
                 details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
+                recommendations.append(
+                    "La vérification du chiffrement STARTTLS et de la bannière SMTP n'a pas pu être effectuée "
+                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu). "
+                    "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
+                    "et que la bannière SMTP ne révèle pas la version du logiciel."
+                )
         else:
             details["starttls"] = "non applicable"
 
