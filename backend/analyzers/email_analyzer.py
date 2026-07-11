@@ -54,7 +54,7 @@ def analyze_email(domain: str) -> ModuleResult:
                 smtp.quit()
             except Exception:
                 score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
-                details["starttls"] = "non vérifiable"
+                details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
         else:
             details["starttls"] = "non applicable"
 
@@ -79,7 +79,7 @@ def analyze_email(domain: str) -> ModuleResult:
                         "Réduire les informations dans le banner SMTP pour limiter la reconnaissance"
                     )
             except Exception:
-                details["smtp_banner"] = "non récupérable"
+                details["smtp_banner"] = "non récupérable (port 25 inaccessible)"
                 details["banner_exposure"] = "non vérifiable"
         else:
             details["smtp_banner"] = "non applicable"
