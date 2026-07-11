@@ -38,23 +38,25 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
         details = {}
         recommendations = []
 
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(whois.whois, domain)
-            try:
-                w = future.result(timeout=15)
-            except FuturesTimeoutError:
-                return ModuleResult(
-                    module_name="Domain Expiration",
-                    status="warning",
-                    severity=SeverityLevel.MEDIUM,
-                    score=50,
-                    details={"expiration_date": "non disponible (timeout WHOIS)"},
-                    recommendations=[
-                        "Impossible de vérifier automatiquement la date d'expiration de votre nom de domaine. "
-                        "Connectez-vous à l'interface de votre registrar (OVH, Gandi, Namecheap…) "
-                        "pour vérifier et renouveler votre domaine manuellement."
-                    ]
-                )
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(whois.whois, domain)
+        try:
+            w = future.result(timeout=15)
+        except FuturesTimeoutError:
+            executor.shutdown(wait=False)
+            return ModuleResult(
+                module_name="Domain Expiration",
+                status="warning",
+                severity=SeverityLevel.MEDIUM,
+                score=50,
+                details={"expiration_date": "non disponible (timeout WHOIS)"},
+                recommendations=[
+                    "Impossible de vérifier automatiquement la date d'expiration de votre nom de domaine. "
+                    "Connectez-vous à l'interface de votre registrar (OVH, Gandi, Namecheap…) "
+                    "pour vérifier et renouveler votre domaine manuellement."
+                ]
+            )
+        executor.shutdown(wait=False)
         expiration_date = _parse_expiration_date(w.expiration_date)
 
         if expiration_date is None:

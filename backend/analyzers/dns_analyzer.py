@@ -4,19 +4,21 @@ from api.models import ModuleResult, SeverityLevel
 
 def analyze_dns(domain: str) -> ModuleResult:
     try:
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(checkdmarc.check_domains, [domain])
-            try:
-                result = future.result(timeout=20)
-            except FuturesTimeoutError:
-                return ModuleResult(
-                    module_name="DNS Security",
-                    status="warning",
-                    severity=SeverityLevel.MEDIUM,
-                    score=0,
-                    details={"error": "timeout lors de la vérification DNS"},
-                    recommendations=["La vérification DNS n'a pas pu aboutir dans le délai imparti."]
-                )
+        executor = ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(checkdmarc.check_domains, [domain])
+        try:
+            result = future.result(timeout=20)
+        except FuturesTimeoutError:
+            executor.shutdown(wait=False)
+            return ModuleResult(
+                module_name="DNS Security",
+                status="warning",
+                severity=SeverityLevel.MEDIUM,
+                score=0,
+                details={"error": "timeout lors de la vérification DNS"},
+                recommendations=["La vérification DNS n'a pas pu aboutir dans le délai imparti."]
+            )
+        executor.shutdown(wait=False)
         
         # Initialiser le score
         score = 0
