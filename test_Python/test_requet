@@ -1,4 +1,0 @@
-
-
-url = https://myges.fr/student/home
-response = requests.get(url)

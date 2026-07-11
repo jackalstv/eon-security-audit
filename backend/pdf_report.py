@@ -16,9 +16,6 @@ from api.models import ScanResult
 
 TEMPLATES_DIR = Path(__file__).parent / 'templates'
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def _score_color(score: int) -> str:
     if score < 40: return '#DC2626'
     if score < 60: return '#EA580C'
@@ -54,8 +51,6 @@ def _fmt_value(v) -> str:
         return 'Oui' if v else 'Non'
     return str(v) if v is not None else '—'
 
-# ── Jinja2 env ────────────────────────────────────────────────────────────────
-
 def _build_env() -> Environment:
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
@@ -67,8 +62,6 @@ def _build_env() -> Environment:
     env.filters['sev_label']   = _sev_label
     env.filters['fmt_value']   = _fmt_value
     return env
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_pdf(result: ScanResult) -> bytes:
     counts = {'critical': 0, 'high': 0, 'medium': 0, 'low': 0}

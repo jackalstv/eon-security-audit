@@ -88,7 +88,7 @@ body {
 /* ── Main layout ──────────────────────────────────────────────────────────── */
 .main { margin-left: var(--sw); min-height: 100vh; transition: margin-left .2s ease; }
 .main.collapsed { margin-left: var(--sc); }
-.main-content { padding: 40px 48px; max-width: 1200px; }
+.main-content { padding: 40px 48px; max-width: 1200px; margin: 0 auto; }
 
 /* ── Page header ──────────────────────────────────────────────────────────── */
 .page-header {

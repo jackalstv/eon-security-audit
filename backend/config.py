@@ -27,14 +27,11 @@ class Settings(BaseSettings):
         "http://132.145.74.215:8000",
     ]
 
-    # Limites
-    MAX_SUBDOMAINS_CHECK: int = 50
-    REQUEST_TIMEOUT: int = 10  # secondes
+    REQUEST_TIMEOUT: int = 10
 
     class Config:
         env_file = ".env"
         case_sensitive = True
 
 
-# Instance globale des settings
 settings = Settings()
