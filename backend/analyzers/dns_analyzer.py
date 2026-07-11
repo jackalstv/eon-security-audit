@@ -19,7 +19,8 @@ def analyze_dns(domain: str) -> ModuleResult:
             recommendations.append(
                 "Sans protection SPF, n'importe qui peut envoyer des emails qui semblent venir de votre domaine. "
                 "Vos clients pourraient recevoir des arnaques en votre nom sans que vous le sachiez. "
-                "Contactez votre hébergeur DNS ou votre registrar (OVH, Gandi…) pour configurer l'enregistrement SPF."
+                "Connectez-vous à l'interface où vous avez acheté votre nom de domaine (OVH, Gandi, Namecheap…) "
+                "et ajoutez un enregistrement SPF, ou demandez à votre prestataire informatique de le faire."
             )
 
         # 2. Vérifier DMARC (30 points)
@@ -31,7 +32,8 @@ def analyze_dns(domain: str) -> ModuleResult:
             recommendations.append(
                 "Sans DMARC, vous ne pouvez pas détecter ni bloquer les usurpations de votre identité par email. "
                 "Des cybercriminels peuvent lancer des campagnes de phishing ciblant vos clients en se faisant passer pour vous. "
-                "Demandez à votre hébergeur de mettre en place DMARC."
+                "Connectez-vous à l'interface de gestion de votre nom de domaine (OVH, Gandi…) "
+                "pour ajouter un enregistrement DMARC, ou demandez à votre prestataire informatique."
             )
 
         # 3. Vérifier DNSSEC (20 points)
@@ -42,8 +44,9 @@ def analyze_dns(domain: str) -> ModuleResult:
             details['dnssec'] = 'désactivé'
             recommendations.append(
                 "Sans DNSSEC, un attaquant pourrait rediriger vos visiteurs vers un faux site à votre place "
-                "sans qu'ils ne s'en aperçoivent (vos visiteurs croiraient être sur votre site). "
-                "Contactez votre registrar (OVH, Cloudflare, Gandi…) pour activer DNSSEC."
+                "sans qu'ils ne s'en aperçoivent. "
+                "Connectez-vous à l'interface de gestion de votre nom de domaine (OVH, Gandi…) "
+                "et activez DNSSEC, ou demandez à votre prestataire informatique de le faire."
             )
 
         # 4. Vérifier MX (25 points)

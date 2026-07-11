@@ -55,7 +55,8 @@ def analyze_email(domain: str) -> ModuleResult:
                     recommendations.append(
                         "Les emails reçus sur votre serveur ne sont pas chiffrés pendant leur transit. "
                         "Le contenu de vos emails professionnels pourrait être intercepté par un tiers. "
-                        "Contactez votre hébergeur de messagerie pour activer le chiffrement des emails entrants (STARTTLS)."
+                        "Contactez votre prestataire de messagerie (Microsoft 365, Google Workspace, ou votre hébergeur) "
+                        "pour activer le chiffrement des emails entrants."
                     )
                 smtp.quit()
             except Exception:

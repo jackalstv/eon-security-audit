@@ -28,7 +28,9 @@ def analyze_ssl(domain: str) -> ModuleResult:
                     recommendations.append(
                         f"Votre site utilise un protocole de chiffrement dépassé ({tls_version}) "
                         "qui peut être contourné par des pirates. Les données échangées avec vos visiteurs "
-                        "ne sont pas correctement protégées. Contactez votre hébergeur pour mettre à jour la configuration."
+                        "ne sont pas correctement protégées. "
+                        "Si vous utilisez Shopify, Wix ou Squarespace, cette mise à jour est de leur responsabilité — contactez leur support. "
+                        "Si vous avez votre propre serveur, demandez à votre prestataire technique de mettre à jour la configuration TLS."
                     )
         
         # 2. Vérifier la date d'expiration
@@ -67,7 +69,8 @@ def analyze_ssl(domain: str) -> ModuleResult:
                 recommendations.append(
                     "Votre site ne force pas les connexions sécurisées. Certains visiteurs peuvent "
                     "accéder à votre site sans chiffrement, exposant leurs données. "
-                    "Demandez à votre hébergeur d'activer HSTS."
+                    "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
+                    "Si vous avez votre propre site, demandez à votre prestataire technique d'activer HSTS."
                 )
         except:
             details['hsts'] = 'Non vérifiable'
