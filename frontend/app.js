@@ -4,7 +4,7 @@ const API = `http://${window.location.hostname}:8000/api/v1`;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const S = {
-  page: 'scan',       // 'scan' | 'loading' | 'results' | 'history'
+  page: 'scan',       // 'scan' | 'loading' | 'results'
   result: null,
   scanId: null,
   online: false,
@@ -14,7 +14,6 @@ const S = {
   loadingDone: [],
   loadingProgress: 0,
   loadingStep: '',
-  history: null,
   chatOpen: true,
   chatMsgs: [],
   chatStreaming: false,
@@ -104,14 +103,6 @@ async function apiScan(domain, sub) {
   return r.json();
 }
 
-async function apiHistory() {
-  try {
-    const r = await fetch(`${API}/history?limit=30`);
-    if (!r.ok) return [];
-    const d = await r.json();
-    return d.scans || [];
-  } catch { return []; }
-}
 
 async function apiLoadScan(scanId) {
   const r = await fetch(`${API}/scan/${scanId}`);
@@ -172,7 +163,6 @@ function buildSidebar() {
     </div>
     <nav class="sb-nav">
       ${nav('scan',    IC.search,  'Nouveau scan')}
-      ${nav('history', IC.clock,   'Historique')}
       ${nav('api',     IC.extLink, 'API Docs', `http://${window.location.hostname}:8000/api/docs`)}
     </nav>
     <div class="sb-footer">
@@ -419,44 +409,6 @@ function buildChatWidget() {
   </div>`;
 }
 
-function buildHistory() {
-  const scans = S.history;
-  if (!scans) return `
-    <div class="page-header"><div><h1 class="page-title">Historique</h1></div></div>
-    <div class="loading-wrap"><div class="spinner"></div></div>`;
-
-  if (scans.length === 0) return `
-    <div class="page-header"><div><h1 class="page-title">Historique</h1><p class="page-subtitle">Aucun scan enregistré</p></div></div>
-    <div class="empty-state">
-      <p>Lancez votre premier audit</p>
-      <button class="btn btn-primary" data-nav="scan">${IC.search} Nouveau scan</button>
-    </div>`;
-
-  return `
-  <div class="page-header">
-    <div>
-      <h1 class="page-title">Historique</h1>
-      <p class="page-subtitle">${scans.length} scan${scans.length > 1 ? 's' : ''} enregistré${scans.length > 1 ? 's' : ''}</p>
-    </div>
-  </div>
-  <div class="history-list">
-    ${scans.map(sc => {
-      const si = scoreInfo(sc.overall_score);
-      return `
-      <div class="hist-row" data-action="open-scan" data-id="${h(sc.scan_id)}">
-        <div class="hist-left">
-          <span class="hist-domain">${h(sc.domain)}</span>
-          <span class="hist-date">${h(fmtDate(sc.timestamp))}</span>
-        </div>
-        <div class="hist-right">
-          <span class="hist-plat">${h(capFirst(sc.platform))}</span>
-          <span class="hist-score" style="color:${si.color}">${sc.overall_score}/100</span>
-          <span class="sev-badge" style="background:${si.color}20;color:${si.color}">${si.label}</span>
-        </div>
-      </div>`;
-    }).join('')}
-  </div>`;
-}
 
 // ── Chat ──────────────────────────────────────────────────────────────────────
 async function sendChat(message) {
@@ -528,7 +480,6 @@ function render() {
     case 'scan':    pageHtml = buildScan();    break;
     case 'loading': pageHtml = buildLoading(); break;
     case 'results': pageHtml = buildResults(); break;
-    case 'history': pageHtml = buildHistory(); break;
   }
 
   document.getElementById('app').innerHTML = `
@@ -609,7 +560,6 @@ document.addEventListener('click', async (e) => {
 
   if (nav) {
     S.page = nav; S.expanded = new Set();
-    if (nav === 'history') { S.history = null; render(); S.history = await apiHistory(); }
     render();
     return;
   }
@@ -630,16 +580,6 @@ document.addEventListener('click', async (e) => {
     case 'pdf':
       await downloadPDF(); break;
 
-    case 'open-scan': {
-      try {
-        const data = await apiLoadScan(el.dataset.id);
-        if (data.success) {
-          S.result = data.result; S.scanId = el.dataset.id;
-          S.page = 'results'; S.expanded = new Set(); render();
-        }
-      } catch (err) { showError(err.message); }
-      break;
-    }
   }
 });
 

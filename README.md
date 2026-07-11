@@ -137,6 +137,8 @@ eon-security-audit/
 
 ## Améliorations possibles
 
+- **Authentification et historique par utilisateur** : l'historique des scans est actuellement désactivé car la base de données est partagée entre tous les visiteurs, ce qui poserait un problème de confidentialité. L'évolution naturelle serait d'ajouter un système d'authentification (JWT ou sessions) pour isoler les données de chaque utilisateur et réactiver l'historique de manière sécurisée.
+
 - **Gestion des dépendances avec Poetry** : le projet utilise actuellement `pip + requirements.txt`. Poetry permettrait de distinguer les dépendances de production et de développement (par exemple, pytest ne serait installé qu'en dev), et de générer un fichier `poetry.lock` qui fige les versions exactes de chaque bibliothèque, garantissant un environnement identique entre les développeurs et le serveur de production.
 
 ## Équipe
