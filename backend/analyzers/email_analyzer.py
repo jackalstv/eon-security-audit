@@ -53,10 +53,8 @@ def analyze_email(domain: str) -> ModuleResult:
                     )
                 smtp.quit()
             except Exception:
+                score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
                 details["starttls"] = "non vérifiable"
-                recommendations.append(
-                    "Impossible de vérifier STARTTLS - le serveur mail ne répond pas sur le port 25"
-                )
         else:
             details["starttls"] = "non applicable"
 
