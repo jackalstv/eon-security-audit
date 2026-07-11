@@ -365,25 +365,29 @@ function buildResults() {
     </div>
   </div>
 
-  ${buildChat(r.domain)}`;
+`;
 }
 
-function buildChat(domain) {
-  const msgs = S.chatMsgs;
+const IC_CHAT  = `<svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+const IC_CLOSE = `<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+
+function buildChatWidget() {
+  const domain = S.result?.domain || '';
+  const msgs   = S.chatMsgs;
   return `
-  <div class="chat-section">
-    <div class="chat-hdr" data-action="chat-toggle">
-      <div>
-        <span class="chat-hdr-title">Assistant ÉON</span>
-        <span class="chat-hdr-sub">Posez vos questions sur les résultats</span>
-      </div>
-      <span>${S.chatOpen ? IC.chevDown : IC.chevLeft}</span>
-    </div>
+  <div class="chat-widget">
     ${S.chatOpen ? `
-    <div class="chat-body">
+    <div class="chat-panel">
+      <div class="chat-panel-hdr">
+        <div>
+          <p class="chat-panel-title">Assistant ÉON</p>
+          <p class="chat-panel-sub">${h(domain)}</p>
+        </div>
+        <button class="chat-panel-close" data-action="chat-toggle">${IC_CLOSE}</button>
+      </div>
       <div class="chat-msgs" id="chat-msgs">
         ${msgs.length === 0
-          ? `<div class="chat-empty">Bonjour ! Posez-moi vos questions sur les résultats de sécurité de <strong>${h(domain)}</strong>.</div>`
+          ? `<div class="chat-empty">Posez-moi vos questions sur les résultats de sécurité de <strong>${h(domain)}</strong>.</div>`
           : msgs.map((msg, i) => {
               const isLast = i === msgs.length - 1 && msg.role === 'assistant';
               return `
@@ -398,12 +402,15 @@ function buildChat(domain) {
       </div>
       <form id="chat-form" class="chat-form">
         <input id="chat-inp" class="chat-inp" type="text"
-               placeholder="Ex : Comment corriger le problème DNS ?"
+               placeholder="Posez votre question…"
                autocomplete="off" spellcheck="false"
                ${S.chatStreaming ? 'disabled' : ''}>
         <button type="submit" class="chat-send" ${S.chatStreaming ? 'disabled' : ''}>→</button>
       </form>
     </div>` : ''}
+    <button class="chat-fab" data-action="chat-toggle" title="Assistant ÉON">
+      ${S.chatOpen ? IC_CLOSE : IC_CHAT}
+    </button>
   </div>`;
 }
 
@@ -523,7 +530,8 @@ function render() {
     ${buildSidebar()}
     <div class="main${S.collapsed ? ' collapsed' : ''}">
       <div class="main-content">${pageHtml}</div>
-    </div>`;
+    </div>
+    ${S.page === 'results' ? buildChatWidget() : ''}`;
 
   // Re-attach form listeners
   document.getElementById('scan-form')?.addEventListener('submit', onScanSubmit);
