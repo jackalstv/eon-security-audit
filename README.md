@@ -8,14 +8,15 @@ L'application est déployée sur un VPS Oracle Cloud. Le backend tourne dans Doc
 
 | # | Module | Ce que ça fait | Auteur |
 |---|--------|----------------|--------|
-| 1 | Platform Detector | Identifie la technologie du site (Shopify, WordPress, Wix…) par analyse du HTML | André |
-| 2 | DNS Security | Vérifie SPF, DMARC, DNSSEC et MX. Protège contre l'usurpation de domaine | André |
-| 3 | SSL/TLS Security | Analyse le certificat HTTPS (validité, expiration), la version TLS et HSTS | André |
-| 4 | Security Headers | Vérifie les headers de sécurité OWASP/ANSSI : CSP, X-Frame-Options, HSTS, etc. | Théo |
-| 5 | Email Security | Teste la configuration mail : MX, redondance, STARTTLS, bannière SMTP | Théo |
-| 6 | Subdomain Takeover | Détecte les sous-domaines pointant vers des services abandonnés | André |
-| 7 | Domain Expiration | Interroge le WHOIS pour vérifier la date d'expiration du domaine | Théo |
-| 8 | OSINT Breaches | Interroge Have I Been Pwned pour détecter des fuites liées au domaine | Théo |
+| 1 | DNS Security | Vérifie SPF, DMARC, DNSSEC et MX. Protège contre l'usurpation de domaine | André |
+| 2 | SSL/TLS Security | Analyse le certificat HTTPS (validité, expiration), la version TLS et HSTS | André |
+| 3 | Security Headers | Vérifie les headers de sécurité OWASP/ANSSI : CSP, X-Frame-Options, HSTS, etc. | Théo |
+| 4 | Email Security | Teste la configuration mail : MX, redondance, STARTTLS, bannière SMTP | Théo |
+| 5 | Subdomain Takeover | Détecte les sous-domaines pointant vers des services abandonnés | André |
+| 6 | Domain Expiration | Interroge le WHOIS pour vérifier la date d'expiration du domaine | Théo |
+| 7 | OSINT Breaches | Interroge Have I Been Pwned pour détecter des fuites liées au domaine | Théo |
+
+La détection de plateforme (Shopify, WordPress, Wix…) est effectuée en amont du scan par André et enrichit le rapport sans score propre.
 
 ## Déploiement (production)
 

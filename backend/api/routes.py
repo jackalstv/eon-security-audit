@@ -12,8 +12,6 @@ from api.models import (
     ScanRequest,
     ScanResponse,
     ScanResult,
-    HistoryResponse,
-    HistoryItem,
     PlatformType,
     ModuleResult,
     SeverityLevel,
@@ -201,29 +199,6 @@ async def get_scan_result(scan_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Scan non trouvé")
     return ScanResponse(success=True, scan_id=scan_id, result=_db_to_result(record))
 
-
-@router.get("/history", response_model=HistoryResponse)
-async def get_scan_history(limit: int = 10, db: Session = Depends(get_db)):
-    records = (
-        db.query(ScanRecord)
-        .order_by(ScanRecord.timestamp.desc())
-        .limit(limit)
-        .all()
-    )
-    total = db.query(ScanRecord).count()
-    return HistoryResponse(
-        scans=[
-            HistoryItem(
-                scan_id=r.scan_id,
-                domain=r.domain,
-                timestamp=r.timestamp,
-                overall_score=r.overall_score,
-                platform=PlatformType(r.platform),
-            )
-            for r in records
-        ],
-        total=total,
-    )
 
 
 @router.delete("/scan/{scan_id}")

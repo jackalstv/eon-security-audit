@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
@@ -8,12 +9,20 @@ import db_models  # noqa: F401 — enregistre les modèles ORM avant create_all
 from api.routes import router
 from api.chat import router as chat_router
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Outil d'audit de sécurité automatisé pour TPE/PME",
     docs_url="/api/docs",
     redoc_url="/api/redoc",
+    lifespan=lifespan,
 )
 
 # Configuration CORS
@@ -24,11 +33,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Accept"],
 )
-
-
-@app.on_event("startup")
-async def create_tables():
-    Base.metadata.create_all(bind=engine)
 
 
 @app.get("/")
