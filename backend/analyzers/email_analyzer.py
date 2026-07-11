@@ -23,7 +23,9 @@ def analyze_email(domain: str) -> ModuleResult:
             mx_hosts = []
             details["mx_records"] = "aucun enregistrement MX"
             recommendations.append(
-                "Configurer des enregistrements MX pour recevoir des emails"
+                "Votre domaine n'est pas configuré pour recevoir des emails. "
+                "Tous les messages envoyés à une adresse @votredomaine seront rejetés ou perdus. "
+                "Contactez votre hébergeur pour configurer la messagerie."
             )
 
         # 2. Redondance MX - plusieurs serveurs (20 points)
@@ -33,7 +35,9 @@ def analyze_email(domain: str) -> ModuleResult:
         elif len(mx_hosts) == 1:
             details["mx_redundancy"] = "non (1 seul serveur)"
             recommendations.append(
-                "Ajouter un serveur MX secondaire pour assurer la redondance"
+                "Votre messagerie ne repose que sur un seul serveur. En cas de panne, "
+                "vous ne pourrez plus recevoir d'emails pendant toute la durée de l'incident. "
+                "Demandez à votre hébergeur de configurer un serveur de messagerie de secours."
             )
         else:
             details["mx_redundancy"] = "non applicable"
@@ -49,7 +53,9 @@ def analyze_email(domain: str) -> ModuleResult:
                 else:
                     details["starttls"] = "non supporté"
                     recommendations.append(
-                        "Activer STARTTLS sur le serveur mail pour chiffrer les échanges"
+                        "Les emails reçus sur votre serveur ne sont pas chiffrés pendant leur transit. "
+                        "Le contenu de vos emails professionnels pourrait être intercepté par un tiers. "
+                        "Contactez votre hébergeur de messagerie pour activer le chiffrement des emails entrants (STARTTLS)."
                     )
                 smtp.quit()
             except Exception:
@@ -76,7 +82,9 @@ def analyze_email(domain: str) -> ModuleResult:
                 else:
                     details["banner_exposure"] = "trop d'informations exposées"
                     recommendations.append(
-                        "Réduire les informations dans le banner SMTP pour limiter la reconnaissance"
+                        "Votre serveur de messagerie révèle des informations techniques à quiconque le contacte "
+                        "(version du logiciel, système d'exploitation). Ces informations aident les pirates à "
+                        "cibler des failles connues. Demandez à votre administrateur système de masquer ces données."
                     )
             except Exception:
                 details["smtp_banner"] = "non récupérable (port 25 inaccessible)"

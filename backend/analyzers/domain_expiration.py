@@ -48,7 +48,9 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
                 score=50,
                 details={"expiration_date": "non disponible"},
                 recommendations=[
-                    "Impossible de récupérer la date d'expiration via WHOIS. Vérifiez manuellement."
+                    "Impossible de vérifier automatiquement la date d'expiration de votre nom de domaine. "
+                    "Connectez-vous à l'interface de votre registrar (OVH, Gandi, Namecheap…) "
+                    "pour vérifier et renouveler votre domaine manuellement."
                 ]
             )
 
@@ -66,35 +68,44 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
             status = "error"
             severity = SeverityLevel.CRITICAL
             recommendations.append(
-                f"Le domaine a expiré il y a {abs(days_remaining)} jour(s). Renouvellement immédiat requis."
+                f"Votre nom de domaine a expiré il y a {abs(days_remaining)} jour(s). "
+                "Votre site et vos emails sont probablement inaccessibles. "
+                "Connectez-vous immédiatement à votre registrar (OVH, Gandi…) pour renouveler "
+                "avant que le domaine soit libéré et racheté par quelqu'un d'autre."
             )
         elif days_remaining < 7:
             score = 0
             status = "error"
             severity = SeverityLevel.CRITICAL
             recommendations.append(
-                f"Expiration imminente dans {days_remaining} jour(s). Renouveler immédiatement."
+                f"URGENT : Votre nom de domaine expire dans {days_remaining} jour(s). "
+                "Sans renouvellement immédiat, votre site et vos emails deviendront inaccessibles. "
+                "Connectez-vous dès maintenant à votre registrar pour renouveler."
             )
         elif days_remaining < 30:
             score = 30
             status = "warning"
             severity = SeverityLevel.HIGH
             recommendations.append(
-                f"Le domaine expire dans {days_remaining} jour(s). Renouvellement urgent recommandé."
+                f"Votre nom de domaine expire dans {days_remaining} jours. "
+                "Renouvelez-le rapidement pour éviter toute interruption de votre site et de vos emails. "
+                "Connectez-vous à votre registrar (OVH, Gandi…) pour le renouveler."
             )
         elif days_remaining < 90:
             score = 60
             status = "warning"
             severity = SeverityLevel.MEDIUM
             recommendations.append(
-                f"Le domaine expire dans {days_remaining} jour(s). Pensez à renouveler prochainement."
+                f"Votre nom de domaine expire dans {days_remaining} jours. "
+                "Pensez à le renouveler prochainement pour ne pas risquer une interruption de service."
             )
         elif days_remaining < 180:
             score = 85
             status = "success"
             severity = SeverityLevel.LOW
             recommendations.append(
-                f"Le domaine expire dans {days_remaining} jour(s). Anticipez le renouvellement."
+                f"Votre nom de domaine expire dans {days_remaining} jours. "
+                "Anticipez le renouvellement pour éviter tout oubli de dernière minute."
             )
         else:
             score = 100

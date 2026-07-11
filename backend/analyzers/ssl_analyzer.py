@@ -25,7 +25,11 @@ def analyze_ssl(domain: str) -> ModuleResult:
                     details['tls_status'] = 'Sécurisé'
                 else:
                     details['tls_status'] = 'Version obsolète'
-                    recommendations.append(f"Mettre à jour vers TLS 1.2+ (actuellement {tls_version})")
+                    recommendations.append(
+                        f"Votre site utilise un protocole de chiffrement dépassé ({tls_version}) "
+                        "qui peut être contourné par des pirates. Les données échangées avec vos visiteurs "
+                        "ne sont pas correctement protégées. Contactez votre hébergeur pour mettre à jour la configuration."
+                    )
         
         # 2. Vérifier la date d'expiration
         expiry_date_str = cert['notAfter']
@@ -38,10 +42,18 @@ def analyze_ssl(domain: str) -> ModuleResult:
         elif days_remaining > 0:
             score += 20
             details['certificate'] = f'Expire bientôt ({days_remaining} jours)'
-            recommendations.append(f"Renouveler le certificat SSL (expire dans {days_remaining} jours)")
+            recommendations.append(
+                f"Votre certificat de sécurité expire dans {days_remaining} jours. "
+                "Sans renouvellement, votre site affichera une alerte de sécurité à tous vos visiteurs, "
+                "ce qui nuira à votre crédibilité. Contactez votre hébergeur pour le renouveler."
+            )
         else:
             details['certificate'] = 'EXPIRÉ'
-            recommendations.append("URGENT : Renouveler le certificat SSL immédiatement")
+            recommendations.append(
+                "URGENT : Votre certificat de sécurité est expiré. Votre site affiche actuellement "
+                "une alerte de danger à tous vos visiteurs, qui ne peuvent plus y accéder sereinement. "
+                "Contactez votre hébergeur immédiatement pour renouveler le certificat."
+            )
         
         # 3. Vérifier HSTS
         try:
@@ -52,7 +64,11 @@ def analyze_ssl(domain: str) -> ModuleResult:
                 details['hsts'] = f'Activé ({hsts_value})'
             else:
                 details['hsts'] = 'Désactivé'
-                recommendations.append("Activer HSTS pour forcer HTTPS")
+                recommendations.append(
+                    "Votre site ne force pas les connexions sécurisées. Certains visiteurs peuvent "
+                    "accéder à votre site sans chiffrement, exposant leurs données. "
+                    "Demandez à votre hébergeur d'activer HSTS."
+                )
         except:
             details['hsts'] = 'Non vérifiable'
         

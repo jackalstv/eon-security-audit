@@ -171,16 +171,19 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
                 vulnerable_subdomains.append(entry)
                 score -= 40
                 recommendations.append(
-                    f"CRITIQUE : {fqdn} pointe vers {service_name} via CNAME orphelin "
-                    f"({cname}) — supprimer l'enregistrement DNS ou revendiquer la ressource"
+                    f"CRITIQUE : Le sous-domaine {fqdn} pointe vers un service tiers abandonné ({service_name}). "
+                    "Un pirate pourrait s'en emparer et l'utiliser pour diffuser du contenu frauduleux en votre nom "
+                    "ou voler des données de vos visiteurs. Contactez immédiatement votre administrateur DNS "
+                    "pour supprimer cette entrée ou récupérer la ressource concernée."
                 )
             else:
                 entry["status"] = "CNAME vers service tiers (à surveiller)"
                 dangling_subdomains.append(entry)
                 score -= 10
                 recommendations.append(
-                    f"Surveiller {fqdn} → {cname} ({service_name}) : "
-                    f"supprimer ce CNAME si le service n'est plus utilisé"
+                    f"Le sous-domaine {fqdn} pointe vers un service externe ({service_name}) "
+                    "qui pourrait ne plus être actif. Si ce service est abandonné, un pirate pourrait le récupérer. "
+                    "Vérifiez si vous utilisez encore ce service et supprimez l'entrée DNS si ce n'est plus le cas."
                 )
 
         score = max(0, score)
@@ -191,12 +194,14 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
         # Recommandation générale ANSSI
         if not recommendations:
             recommendations.append(
-                "Aucun CNAME orphelin détecté sur les sous-domaines courants"
+                "Aucun sous-domaine vulnérable détecté. Bonne pratique : vérifiez régulièrement "
+                "vos sous-domaines et supprimez ceux qui ne correspondent plus à des services actifs."
             )
-        recommendations.append(
-            "ANSSI recommande de supprimer tout enregistrement DNS pointant vers "
-            "des ressources tierces non utilisées (Guide d'hygiène informatique, mesure 13)"
-        )
+        else:
+            recommendations.append(
+                "Bonne pratique : faites régulièrement le ménage dans vos entrées DNS. "
+                "Chaque sous-domaine inutilisé est une porte d'entrée potentielle pour les pirates."
+            )
 
         # Sévérité
         if vulnerable_subdomains:

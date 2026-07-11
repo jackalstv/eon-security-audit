@@ -16,31 +16,47 @@ def analyze_dns(domain: str) -> ModuleResult:
             details['spf'] = 'valid'
         else:
             details['spf'] = 'invalid ou manquant'
-            recommendations.append("Configurer un enregistrement SPF")
-        
+            recommendations.append(
+                "Sans protection SPF, n'importe qui peut envoyer des emails qui semblent venir de votre domaine. "
+                "Vos clients pourraient recevoir des arnaques en votre nom sans que vous le sachiez. "
+                "Contactez votre hébergeur DNS ou votre registrar (OVH, Gandi…) pour configurer l'enregistrement SPF."
+            )
+
         # 2. Vérifier DMARC (30 points)
         if result.get('dmarc', {}).get('valid'):
             score += 30
             details['dmarc'] = result['dmarc'].get('record', 'configured')
         else:
             details['dmarc'] = 'manquant'
-            recommendations.append("Configurer DMARC avec politique p=quarantine minimum")
-        
+            recommendations.append(
+                "Sans DMARC, vous ne pouvez pas détecter ni bloquer les usurpations de votre identité par email. "
+                "Des cybercriminels peuvent lancer des campagnes de phishing ciblant vos clients en se faisant passer pour vous. "
+                "Demandez à votre hébergeur de mettre en place DMARC."
+            )
+
         # 3. Vérifier DNSSEC (20 points)
         if result.get('dnssec'):
             score += 20
             details['dnssec'] = 'activé'
         else:
             details['dnssec'] = 'désactivé'
-            recommendations.append("Activer DNSSEC pour protéger contre le cache poisoning")
-        
+            recommendations.append(
+                "Sans DNSSEC, un attaquant pourrait rediriger vos visiteurs vers un faux site à votre place "
+                "sans qu'ils ne s'en aperçoivent (vos visiteurs croiraient être sur votre site). "
+                "Contactez votre registrar (OVH, Cloudflare, Gandi…) pour activer DNSSEC."
+            )
+
         # 4. Vérifier MX (25 points)
         if result.get('mx', {}).get('hosts'):
             score += 25
             details['mx'] = f"{len(result['mx']['hosts'])} serveur(s) configuré(s)"
         else:
             details['mx'] = 'non configuré'
-            recommendations.append("Configurer les enregistrements MX")
+            recommendations.append(
+                "Votre domaine n'est pas configuré pour recevoir des emails. "
+                "Tous les messages envoyés à une adresse @votredomaine seront rejetés ou perdus. "
+                "Contactez votre hébergeur pour configurer la messagerie."
+            )
 
         # Déterminer le status et la sévérité selon le score
         if score >= 80:
