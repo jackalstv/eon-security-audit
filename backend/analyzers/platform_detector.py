@@ -7,7 +7,7 @@ def detect_platform(domain: str)-> PlatformType :
         headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
-        reponse = requests.get(url, headers=headers)
+        reponse = requests.get(url, headers=headers, timeout=10)
         if 'shopify' in reponse.text.lower():
             return PlatformType.SHOPIFY
         if 'wix' in reponse.text.lower():
