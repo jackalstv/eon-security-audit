@@ -362,6 +362,11 @@ function buildResults() {
             </div>`;
           }).join('')}
       </div>
+      <div class="support-card">
+        <p class="support-title">Besoin d'aide ?</p>
+        <p class="support-text">Notre équipe peut vous accompagner dans la mise en conformité de votre domaine.</p>
+        <a href="mailto:support@eon-audit.com" class="support-link">support@eon-audit.com</a>
+      </div>
     </div>
   </div>
 
