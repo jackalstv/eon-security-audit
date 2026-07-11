@@ -143,6 +143,14 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
                     )
         else:
             details["emails_compromis"] = "non vérifié"
+            if not source_breaches and not urlhaus_listed:
+                recommendations.append(
+                    f"Aucune fuite connue détectée pour ce domaine dans la base publique HIBP "
+                    f"({total_hibp} fuites vérifiées). "
+                    "Le scan des adresses email associées au domaine n'a pas pu être effectué — "
+                    "il nécessite une clé API et la propriété du domaine. "
+                    "Vous pouvez vérifier manuellement vos adresses sur haveibeenpwned.com."
+                )
 
         # Calcul du score
         emails_val = details.get("emails_compromis", 0)

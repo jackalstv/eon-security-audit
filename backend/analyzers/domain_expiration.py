@@ -111,6 +111,10 @@ def analyze_domain_expiration(domain: str) -> ModuleResult:
             score = 100
             status = "success"
             severity = SeverityLevel.LOW
+            recommendations.append(
+                f"Votre nom de domaine est valide jusqu'au {expiration_date.strftime('%d/%m/%Y')} ({days_remaining} jours). "
+                "Pensez à activer le renouvellement automatique sur votre registrar pour ne jamais risquer une expiration accidentelle."
+            )
 
         return ModuleResult(
             module_name="Domain Expiration",
