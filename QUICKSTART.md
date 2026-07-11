@@ -2,15 +2,6 @@
 
 ## Installation
 
-### Option 1 : Script automatique
-
-```bash
-chmod +x setup.sh
-./setup.sh
-```
-
-### Option 2 : Manuel
-
 ```bash
 cd backend
 python3 -m venv venv
