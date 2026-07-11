@@ -106,9 +106,9 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
                 "Vérifier immédiatement l'intégrité du serveur et des fichiers hébergés."
             )
         elif urlhaus_status == "no_results":
-            details["malware_urlhaus"] = {"liste": False}
+            details["malware_urlhaus"] = "Non référencé"
         else:
-            details["malware_urlhaus"] = {"liste": "indisponible"}
+            details["malware_urlhaus"] = "Indisponible"
 
         # 3. Vérification avancée HIBP : emails @domaine dans fuites (clé API requise)
         if settings.HIBP_API_KEY:
@@ -143,14 +143,6 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
                     )
         else:
             details["emails_compromis"] = "non vérifié"
-            details["emails_compromis_detail"] = (
-                f"{total_hibp} fuites vérifiées dans la base HIBP — "
-                "scan des adresses email @" + domain + " désactivé (HIBP_API_KEY non configurée)"
-            )
-            recommendations.append(
-                "Configurer HIBP_API_KEY dans .env pour activer le scan des adresses "
-                "email @" + domain + " dans les bases de fuites connues."
-            )
 
         # Calcul du score
         emails_val = details.get("emails_compromis", 0)
