@@ -1,6 +1,14 @@
 from datetime import datetime
 from pathlib import Path
 
+MONTHS_FR = [
+    'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+]
+
+def _fmt_date_fr(dt: datetime) -> str:
+    return f"{dt.day} {MONTHS_FR[dt.month - 1]} {dt.year}"
+
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
@@ -76,14 +84,18 @@ def generate_pdf(result: ScanResult) -> bytes:
         key=lambda x: _sev_order(x[0]),
     )
 
+    sorted_modules = sorted(result.modules, key=lambda m: _sev_order(m.severity.value))
+
     env = _build_env()
     template = env.get_template('report.html.j2')
     html_str = template.render(
         result=result,
+        sorted_modules=sorted_modules,
         counts=counts,
         all_recs=all_recs,
         score_color=_score_color(result.overall_score),
         score_label=_score_label(result.overall_score),
+        cover_date=_fmt_date_fr(result.timestamp),
         generated_at=datetime.now().strftime('%d/%m/%Y à %H:%M'),
     )
 

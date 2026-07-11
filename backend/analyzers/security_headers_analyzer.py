@@ -37,8 +37,8 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site n'est pas protégé contre l'injection de code malveillant (attaques XSS). "
                 "Un pirate pourrait afficher du faux contenu à vos visiteurs ou voler leurs données. "
-                "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
-                "Si vous avez un site sur mesure, demandez à votre développeur d'activer la Content Security Policy."
+                ""
+                "Demandez à votre développeur d'activer la Content Security Policy."
             )
 
         # 2. X-Frame-Options (20 points)
@@ -50,8 +50,8 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site peut être intégré dans une autre page web à votre insu, "
                 "permettant de tromper vos visiteurs en leur faisant croire qu'ils interagissent avec votre site. "
-                "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
-                "Si vous avez un site sur mesure, demandez à votre développeur d'activer la protection X-Frame-Options."
+                ""
+                "Demandez à votre développeur d'activer la protection X-Frame-Options."
             )
 
         # 3. X-Content-Type-Options (15 points)
@@ -63,8 +63,8 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site laisse les navigateurs interpréter librement le type des fichiers téléchargés, "
                 "ce qui peut permettre l'exécution de fichiers malveillants. "
-                "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
-                "Si vous avez un site sur mesure, demandez à votre développeur d'activer X-Content-Type-Options."
+                ""
+                "Demandez à votre développeur d'activer X-Content-Type-Options."
             )
 
         # 4. Strict-Transport-Security (25 points)
@@ -76,8 +76,8 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site n'impose pas les connexions sécurisées (HTTPS). "
                 "Des visiteurs pourraient accéder à votre site sans chiffrement et voir leurs données interceptées. "
-                "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
-                "Si vous avez un site sur mesure, demandez à votre développeur d'activer HSTS."
+                ""
+                "Demandez à votre développeur d'activer HSTS."
             )
 
         # 5. Referrer-Policy (15 points)
@@ -89,8 +89,8 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site transmet des informations sur la navigation de vos visiteurs à des sites tiers "
                 "(pages visitées, URLs internes). "
-                "Si vous utilisez Shopify, Wix ou Squarespace, contactez leur support. "
-                "Si vous avez un site sur mesure, demandez à votre développeur de configurer la Referrer Policy."
+                ""
+                "Demandez à votre développeur de configurer la Referrer Policy."
             )
 
         # Détermination status & severity (ALIGNÉ DNS)

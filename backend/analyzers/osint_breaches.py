@@ -164,7 +164,7 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
         elif has_source_breach:
             score, status, severity = 35, "warning", SeverityLevel.HIGH
         elif isinstance(emails_val, str):
-            score, status, severity = 80, "warning", SeverityLevel.MEDIUM
+            score, status, severity = 90, "success", SeverityLevel.LOW
         elif emails_val == 0:
             score, status, severity = 100, "success", SeverityLevel.LOW
         elif emails_val <= 5:

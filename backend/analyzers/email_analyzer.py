@@ -29,16 +29,27 @@ def analyze_email(domain: str) -> ModuleResult:
             )
 
         # 2. Redondance MX - plusieurs serveurs (20 points)
+        mx_primary = mx_hosts[0].lower() if mx_hosts else ''
+        is_m365 = 'protection.outlook.com' in mx_primary
+        is_google = 'aspmx.l.google.com' in mx_primary or 'googlemail.com' in mx_primary
+
         if len(mx_hosts) >= 2:
             score += 20
             details["mx_redundancy"] = "oui"
         elif len(mx_hosts) == 1:
-            details["mx_redundancy"] = "non (1 seul serveur)"
-            recommendations.append(
-                "Votre messagerie ne repose que sur un seul serveur. En cas de panne, "
-                "vous ne pourrez plus recevoir d'emails pendant toute la durée de l'incident. "
-                "Demandez à votre hébergeur de configurer un serveur de messagerie de secours."
-            )
+            if is_m365:
+                score += 20
+                details["mx_redundancy"] = "géré par Microsoft 365 (redondance interne)"
+            elif is_google:
+                score += 20
+                details["mx_redundancy"] = "géré par Google Workspace (redondance interne)"
+            else:
+                details["mx_redundancy"] = "non (1 seul serveur)"
+                recommendations.append(
+                    "Votre messagerie ne repose que sur un seul serveur. En cas de panne, "
+                    "vous ne pourrez plus recevoir d'emails pendant toute la durée de l'incident. "
+                    "Demandez à votre hébergeur de configurer un serveur de messagerie de secours."
+                )
         else:
             details["mx_redundancy"] = "non applicable"
 

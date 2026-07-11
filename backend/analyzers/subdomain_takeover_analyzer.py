@@ -143,9 +143,9 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
             cname = _resolve_cname(fqdn)
 
             if cname is None:
-                continue  # sous-domaine inexistant, pas de risque
+                continue  # sous-domaine sans CNAME externe, pas de risque
 
-            checked += 1
+            checked += 1  # sous-domaine avec CNAME vers un service tiers
             is_dangling, service_name = _is_dangling_cname(cname, VULNERABLE_SIGNATURES)
 
             if not is_dangling:
@@ -187,7 +187,8 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
                 )
 
         score = max(0, score)
-        details["subdomains_checked"] = checked
+        details["subdomains_testes"] = len(COMMON_SUBDOMAINS)
+        details["avec_cname_externe"] = checked
         details["vulnerable"] = vulnerable_subdomains
         details["at_risk"] = dangling_subdomains
 

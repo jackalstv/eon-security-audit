@@ -26,7 +26,15 @@ def analyze_dns(domain: str) -> ModuleResult:
         # 2. Vérifier DMARC (30 points)
         if result.get('dmarc', {}).get('valid'):
             score += 30
-            details['dmarc'] = result['dmarc'].get('record', 'configured')
+            dmarc_record = result['dmarc'].get('record', 'configured')
+            details['dmarc'] = dmarc_record
+            if isinstance(dmarc_record, str) and 'p=quarantine' in dmarc_record.lower():
+                recommendations.append(
+                    "Votre protection anti-usurpation (DMARC) est active mais en mode 'quarantine' : "
+                    "les emails frauduleux envoyés en votre nom sont renvoyés en spam, mais pas bloqués. "
+                    "Pour une protection maximale, demandez à votre prestataire informatique de passer à p=reject, "
+                    "qui bloque définitivement toute tentative d'usurpation de votre identité."
+                )
         else:
             details['dmarc'] = 'manquant'
             recommendations.append(

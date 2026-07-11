@@ -274,7 +274,7 @@
       <div class="cover-brand">ÉON</div>
       <div class="cover-brand-sub">Audit de Sécurité Automatisé</div>
     </div>
-    <div class="cover-date">{{ result.timestamp.strftime('%d %B %Y') }}</div>
+    <div class="cover-date">{{ cover_date }}</div>
   </div>
 
   <div class="cover-body">
@@ -364,7 +364,7 @@
     </tr>
   </thead>
   <tbody>
-    {% for m in result.modules %}
+    {% for m in sorted_modules %}
     {% set mc = m.score|score_color %}
     {% set sc = m.severity.value|sev_color %}
     <tr>
@@ -387,7 +387,7 @@
 <h2 style="margin-top:22px">Scores par module</h2>
 <hr class="rule">
 <div class="bars">
-  {% for m in result.modules %}
+  {% for m in sorted_modules %}
   {% set mc = m.score|score_color %}
   <div class="bar-row">
     <span class="bar-lbl">{{ m.module_name }}</span>
@@ -405,7 +405,7 @@
 <h2>Analyse Détaillée par Module</h2>
 <hr class="rule">
 
-{% for m in result.modules %}
+{% for m in sorted_modules %}
 {% set mc = m.score|score_color %}
 {% set sc = m.severity.value|sev_color %}
 <div class="module-card" style="border-left: 4px solid {{ mc }}">
