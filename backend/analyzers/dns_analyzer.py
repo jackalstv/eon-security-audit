@@ -35,7 +35,7 @@ def analyze_dns(domain: str) -> ModuleResult:
         executor = ThreadPoolExecutor(max_workers=1)
         future = executor.submit(checkdmarc.check_domains, [domain])
         try:
-            result = future.result(timeout=20)
+            result = future.result(timeout=35)
         except FuturesTimeoutError:
             executor.shutdown(wait=False)
             result = _fallback_dns_check(domain)
