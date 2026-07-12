@@ -53,11 +53,15 @@ def analyze_email(domain: str) -> ModuleResult:
         else:
             details["mx_redundancy"] = "non applicable"
 
-        # 3. Support STARTTLS sur le serveur mail principal (30 points)
+        # 3+4. Une seule connexion SMTP pour vérifier STARTTLS et bannière
         if mx_hosts:
             try:
                 smtp = smtplib.SMTP(mx_hosts[0], 25, timeout=10)
+                # La bannière est dans la réponse initiale du serveur
+                banner = smtp.getwelcome().decode('utf-8', errors='ignore').strip() if isinstance(smtp.getwelcome(), bytes) else str(smtp.getwelcome())
                 smtp.ehlo()
+
+                # Vérifier STARTTLS (30 points)
                 if smtp.has_extn('STARTTLS'):
                     score += 30
                     details["starttls"] = "supporté"
@@ -69,31 +73,11 @@ def analyze_email(domain: str) -> ModuleResult:
                         "Contactez votre prestataire de messagerie (Microsoft 365, Google Workspace, ou votre hébergeur) "
                         "pour activer le chiffrement des emails entrants."
                     )
-                smtp.quit()
-            except Exception:
-                score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
-                details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
-                recommendations.append(
-                    "La vérification du chiffrement STARTTLS et de la bannière SMTP n'a pas pu être effectuée "
-                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu). "
-                    "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
-                    "et que la bannière SMTP ne révèle pas la version du logiciel."
-                )
-        else:
-            details["starttls"] = "non applicable"
 
-        # 4. Banner SMTP non verbose (25 points)
-        if mx_hosts:
-            try:
-                sock = socket.create_connection((mx_hosts[0], 25), timeout=10)
-                banner = sock.recv(1024).decode('utf-8', errors='ignore').strip()
-                sock.close()
-
+                # Vérifier bannière (25 points)
                 details["smtp_banner"] = banner
-                # Vérifier si le banner expose trop d'infos (version, OS, etc.)
                 keywords_verbose = ["version", "ubuntu", "debian", "centos", "postfix"]
                 is_verbose = any(kw in banner.lower() for kw in keywords_verbose)
-
                 if not is_verbose:
                     score += 25
                     details["banner_exposure"] = "discret"
@@ -104,10 +88,21 @@ def analyze_email(domain: str) -> ModuleResult:
                         "(version du logiciel, système d'exploitation). Ces informations aident les pirates à "
                         "cibler des failles connues. Demandez à votre administrateur système de masquer ces données."
                     )
+
+                smtp.quit()
             except Exception:
+                score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
+                details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
                 details["smtp_banner"] = "non récupérable (port 25 inaccessible)"
                 details["banner_exposure"] = "non vérifiable"
+                recommendations.append(
+                    "La vérification du chiffrement STARTTLS et de la bannière SMTP n'a pas pu être effectuée "
+                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu). "
+                    "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
+                    "et que la bannière SMTP ne révèle pas la version du logiciel."
+                )
         else:
+            details["starttls"] = "non applicable"
             details["smtp_banner"] = "non applicable"
 
         # Détermination status & severity (ALIGNÉ DNS)
