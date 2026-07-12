@@ -5,8 +5,10 @@ from api.models import ModuleResult, SeverityLevel
 
 
 def _fallback_dns_check(domain: str) -> dict:
-    """Vérification DNS basique via dnspython quand checkdmarc timeout."""
-    result = {'spf': {'valid': False}, 'dmarc': {'valid': False, 'record': None}, 'dnssec': False, 'mx': {'hosts': []}}
+    """Vérification DNS basique via dnspython quand checkdmarc timeout.
+    DNSSEC n'est pas vérifiable par ce fallback : on renvoie None (≠ False)
+    pour que le critère soit exclu du barème au lieu de pénaliser le domaine."""
+    result = {'spf': {'valid': False}, 'dmarc': {'valid': False, 'record': None}, 'dnssec': None, 'mx': {'hosts': []}}
     try:
         txts = dns.resolver.resolve(domain, 'TXT', lifetime=5)
         for r in txts:
@@ -84,9 +86,14 @@ def analyze_dns(domain: str) -> ModuleResult:
             )
 
         # 3. Vérifier DNSSEC (20 points)
+        dnssec_unverifiable = False
         if result.get('dnssec'):
             score += 20
             details['dnssec'] = 'activé'
+        elif result.get('dnssec') is None:
+            # Fallback dnspython utilisé : DNSSEC non vérifié, critère exclu du barème
+            dnssec_unverifiable = True
+            details['dnssec'] = 'non évalué (vérification DNS interrompue)'
         else:
             details['dnssec'] = 'désactivé'
             recommendations.append(
@@ -107,6 +114,12 @@ def analyze_dns(domain: str) -> ModuleResult:
                 "Tous les messages envoyés à une adresse @votredomaine seront rejetés ou perdus. "
                 "Contactez votre hébergeur pour configurer la messagerie."
             )
+
+        # DNSSEC invérifiable : les 20 points sont exclus du barème.
+        # On note sur les 80 points vérifiables (SPF + DMARC + MX), remis à l'échelle sur 100.
+        if dnssec_unverifiable:
+            details['bareme'] = 'score calculé sur les vérifications réalisables uniquement'
+            score = round(score * 100 / 80)
 
         # Déterminer le status et la sévérité selon le score
         if score >= 80:

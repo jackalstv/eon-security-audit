@@ -50,6 +50,18 @@ def test_recommendation_dmarc_quarantine(mock_check):
 
 
 @patch('analyzers.dns_analyzer.checkdmarc.check_domains')
+def test_dnssec_non_evalue_score_rescale(mock_check):
+    """Fallback dnspython (DNSSEC non vérifiable) → 80/80 points vérifiables → score 100."""
+    mock_check.return_value = _resultat_checkdmarc(dnssec=None)
+
+    result = analyze_dns("example.com")
+
+    assert result.score == 100
+    assert result.details["dnssec"] == "non évalué (vérification DNS interrompue)"
+    assert "bareme" in result.details
+
+
+@patch('analyzers.dns_analyzer.checkdmarc.check_domains')
 def test_score_zero_rien_configure(mock_check):
     """Sans SPF, DMARC, DNSSEC et MX → score 0, sévérité CRITIQUE."""
     mock_check.return_value = _resultat_checkdmarc(spf=False, dmarc=False, dnssec=False, mx=False)
