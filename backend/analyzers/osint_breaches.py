@@ -19,10 +19,14 @@ def _check_domain_as_breach_source(domain: str) -> tuple[list[dict], int]:
 
     all_breaches = response.json()
     total = len(all_breaches)
-    root_domain = domain.split(".")[-2] + "." + domain.split(".")[-1]
+    parts = domain.lower().split(".")
+    # Cherche les 2 et 3 dernières parties pour couvrir .co.uk, .com.br, etc.
+    candidates = {".".join(parts[-2:])}
+    if len(parts) >= 3:
+        candidates.add(".".join(parts[-3:]))
     matched = [
         b for b in all_breaches
-        if root_domain.lower() in b.get("Domain", "").lower()
+        if any(c in b.get("Domain", "").lower() for c in candidates)
     ]
     return matched, total
 

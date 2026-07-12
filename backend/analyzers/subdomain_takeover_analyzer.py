@@ -1,5 +1,6 @@
 import dns.resolver
 import requests
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from api.models import ModuleResult, SeverityLevel
 
 # Signatures de services vulnérables au subdomain takeover
@@ -128,8 +129,7 @@ def _is_dangling_cname(cname: str, signatures: dict) -> tuple[bool, str]:
     return False, ""
 
 
-def detect_subdomain_takeover(domain: str) -> ModuleResult:
-
+def _run_takeover_check(domain: str) -> ModuleResult:
     try:
         score = 100  # on part de 100, on déduit selon les risques trouvés
         details = {}
@@ -235,4 +235,21 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
             score=0,
             details={"error": str(e)},
             recommendations=["Vérifier la résolution DNS et la connectivité réseau"],
+        )
+
+
+def detect_subdomain_takeover(domain: str) -> ModuleResult:
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(_run_takeover_check, domain)
+    try:
+        return future.result(timeout=45)
+    except FuturesTimeoutError:
+        executor.shutdown(wait=False)
+        return ModuleResult(
+            module_name="Subdomain Takeover",
+            status="warning",
+            severity=SeverityLevel.MEDIUM,
+            score=50,
+            details={"warning": "analyse interrompue (timeout 45s)"},
+            recommendations=["L'analyse des sous-domaines n'a pas pu aboutir dans le délai imparti."],
         )

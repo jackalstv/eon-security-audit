@@ -66,7 +66,7 @@ def analyze_ssl(domain: str) -> ModuleResult:
             else:
                 details['hsts'] = 'Désactivé'
                 # Recommandation gérée par Security Headers pour éviter la duplication
-        except:
+        except Exception:
             details['hsts'] = 'Non vérifiable'
         
         # Détermination status & severity (ALIGNÉ DNS)
