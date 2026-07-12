@@ -1,6 +1,11 @@
 from datetime import datetime
 from pathlib import Path
 
+from jinja2 import Environment, FileSystemLoader
+from weasyprint import HTML
+
+from api.models import ScanResult
+
 MONTHS_FR = [
     'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
     'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
@@ -8,11 +13,6 @@ MONTHS_FR = [
 
 def _fmt_date_fr(dt: datetime) -> str:
     return f"{dt.day} {MONTHS_FR[dt.month - 1]} {dt.year}"
-
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
-
-from api.models import ScanResult
 
 TEMPLATES_DIR = Path(__file__).parent / 'templates'
 
