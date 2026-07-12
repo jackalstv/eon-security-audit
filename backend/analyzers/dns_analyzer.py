@@ -5,7 +5,10 @@ from api.models import ModuleResult, SeverityLevel
 def analyze_dns(domain: str) -> ModuleResult:
     try:
         executor = ThreadPoolExecutor(max_workers=1)
-        future = executor.submit(checkdmarc.check_domains, [domain])
+        # skip_tls obligatoire : les timeouts STARTTLS de checkdmarc reposent sur des
+        # signaux Unix, interdits hors du thread principal (STARTTLS est déjà couvert
+        # par email_analyzer).
+        future = executor.submit(checkdmarc.check_domains, [domain], skip_tls=True)
         try:
             result = future.result(timeout=20)
         except FuturesTimeoutError:

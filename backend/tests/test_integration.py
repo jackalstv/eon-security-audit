@@ -46,8 +46,8 @@ def test_dns_google_spf_et_dmarc_valides():
     result = analyze_dns("google.com")
 
     # checkdmarc timeout si le résolveur DNS de la machine est inaccessible
-    if result.score == 0 and len(result.recommendations) >= 4:
-        pytest.skip("Résolveur DNS de checkdmarc inaccessible depuis cette machine (test OK sur le VPS)")
+    if "error" in result.details:
+        pytest.skip(f"checkdmarc inaccessible depuis cette machine : {result.details['error']}")
 
     assert result.score >= 75
     assert result.details.get("spf") == "valid"

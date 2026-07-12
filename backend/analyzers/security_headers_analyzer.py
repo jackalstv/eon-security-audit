@@ -6,7 +6,7 @@ from api.models import ModuleResult, SeverityLevel
 
 
 def analyze_security_headers(domain: str) -> ModuleResult:
-    """Analyse les en-têtes HTTP de sécurité (OWASP / ANSSI)"""
+    #Analyse les en-têtes HTTP de sécurité (OWASP / ANSSI)
     try:
         score = 0
         details = {}

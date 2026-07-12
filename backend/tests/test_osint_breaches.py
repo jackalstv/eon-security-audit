@@ -20,8 +20,8 @@ def _mock_urlhaus(query_status):
 @patch('analyzers.osint_breaches.settings')
 @patch('analyzers.osint_breaches.requests.post')
 @patch('analyzers.osint_breaches.requests.get')
-def test_score_90_sans_cle_api_aucune_fuite(mock_get, mock_post, mock_settings):
-    """Sans clé API et sans fuite connue → score 90 (LOW)."""
+def test_score_100_sans_cle_api_aucune_fuite(mock_get, mock_post, mock_settings):
+    """Sans clé API et sans fuite connue → score 100 (LOW), l'invérifiable n'est pas pénalisé."""
     mock_settings.HIBP_API_KEY = None
     mock_settings.REQUEST_TIMEOUT = 10
     mock_get.return_value = _mock_hibp([])                    # aucune fuite dans HIBP
@@ -29,8 +29,9 @@ def test_score_90_sans_cle_api_aucune_fuite(mock_get, mock_post, mock_settings):
 
     result = analyze_osint_breaches("example.com")
 
-    assert result.score == 90
+    assert result.score == 100
     assert result.severity == SeverityLevel.LOW
+    assert result.details["emails_compromis"] == "non vérifié"
 
 
 @patch('analyzers.osint_breaches.settings')

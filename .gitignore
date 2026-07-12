@@ -8,6 +8,10 @@
 *.pfx
 Projet Annuel/
 
+# Base de données locale
+*.db
+*.sqlite3
+
 # Rapports d'audit
 reports/
 output/

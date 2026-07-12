@@ -6,7 +6,7 @@ from api.models import ModuleResult, SeverityLevel
 
 
 def analyze_email(domain: str) -> ModuleResult:
-    """Analyse la sécurité de la configuration email (MX, anti-spam, STARTTLS)"""
+    #Analyse la sécurité de la configuration email (MX, anti-spam, STARTTLS)
     try:
         score = 0
         details = {}
@@ -54,11 +54,15 @@ def analyze_email(domain: str) -> ModuleResult:
             details["mx_redundancy"] = "non applicable"
 
         # 3+4. Une seule connexion SMTP pour vérifier STARTTLS et bannière
+        port25_blocked = False
         if mx_hosts:
             try:
                 smtp = smtplib.SMTP(mx_hosts[0], 25, timeout=10)
                 # La bannière est dans la réponse initiale du serveur
-                banner = smtp.getwelcome().decode('utf-8', errors='ignore').strip() if isinstance(smtp.getwelcome(), bytes) else str(smtp.getwelcome())
+                banner = smtp.getwelcome()
+                if isinstance(banner, bytes):
+                    banner = banner.decode('utf-8', errors='ignore')
+                banner = str(banner).strip()
                 smtp.ehlo()
 
                 # Vérifier STARTTLS (30 points)
@@ -91,19 +95,27 @@ def analyze_email(domain: str) -> ModuleResult:
 
                 smtp.quit()
             except Exception:
-                score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
-                details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
-                details["smtp_banner"] = "non récupérable (port 25 inaccessible)"
-                details["banner_exposure"] = "non vérifiable"
+                port25_blocked = True
+                details["starttls"] = "non évalué (port 25 inaccessible depuis le scanner)"
+                details["smtp_banner"] = "non évalué (port 25 inaccessible)"
+                details["banner_exposure"] = "non évalué"
                 recommendations.append(
                     "La vérification du chiffrement STARTTLS et de la bannière SMTP n'a pas pu être effectuée "
-                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu). "
+                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu) : "
+                    "ces critères sont exclus du calcul du score. "
                     "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
                     "et que la bannière SMTP ne révèle pas la version du logiciel."
                 )
         else:
             details["starttls"] = "non applicable"
             details["smtp_banner"] = "non applicable"
+
+        # Port 25 filtré : les 55 points STARTTLS/bannière sont invérifiables.
+        # On note sur les 45 points vérifiables (MX + redondance), remis à l'échelle sur 100,
+        # pour ne pas pénaliser le domaine à cause d'une limite du scanner.
+        if port25_blocked:
+            details["bareme"] = "score calculé sur les vérifications réalisables uniquement"
+            score = round(score * 100 / 45)
 
         # Détermination status & severity (ALIGNÉ DNS)
         if score >= 80:

@@ -8,8 +8,8 @@ HIBP_HEADERS = {"user-agent": "EON-Security-Audit/1.0"}
 
 
 def _check_domain_as_breach_source(domain: str) -> tuple[list[dict], int]:
-    """Vérifie si le domaine est lui-même source d'une fuite connue (endpoint public, sans clé).
-    Retourne (fuites_trouvées, total_fuites_vérifiées)."""
+    #Vérifie si le domaine est lui-même source d'une fuite connue (endpoint public, sans clé)
+    #Retourne (fuites_trouvées, total_fuites_vérifiées)
     response = requests.get(
         f"{HIBP_BASE_URL}/breaches",
         headers=HIBP_HEADERS,
@@ -28,7 +28,7 @@ def _check_domain_as_breach_source(domain: str) -> tuple[list[dict], int]:
 
 
 def _check_emails_in_breaches(domain: str) -> dict:
-    """Vérifie les emails @domaine dans toutes les fuites (endpoint payant, clé requise)."""
+    #Vérifie les emails @domaine dans toutes les fuites (endpoint payant, clé requise)
     headers = {**HIBP_HEADERS, "hibp-api-key": settings.HIBP_API_KEY}
     response = requests.get(
         f"{HIBP_BASE_URL}/breacheddomain/{domain}",
@@ -48,7 +48,7 @@ def _check_emails_in_breaches(domain: str) -> dict:
 
 
 def _check_urlhaus(domain: str) -> dict:
-    """Vérifie si le domaine distribue des malwares (URLhaus/abuse.ch — gratuit, sans clé)."""
+    #Vérifie si le domaine distribue des malwares (URLhaus/abuse.ch — gratuit, sans clé)
     try:
         response = requests.post(
             "https://urlhaus-api.abuse.ch/v1/host/",
@@ -62,7 +62,7 @@ def _check_urlhaus(domain: str) -> dict:
 
 
 def analyze_osint_breaches(domain: str) -> ModuleResult:
-    """Interroge Have I Been Pwned et URLhaus pour détecter les fuites et menaces liées au domaine."""
+    #Interroge Have I Been Pwned et URLhaus pour détecter les fuites et menaces liées au domaine
     try:
         details: dict = {}
         recommendations: list[str] = []
@@ -164,7 +164,9 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
         elif has_source_breach:
             score, status, severity = 35, "warning", SeverityLevel.HIGH
         elif isinstance(emails_val, str):
-            score, status, severity = 90, "success", SeverityLevel.LOW
+            # Vérification des emails impossible (pas de clé API) : critère exclu du score,
+            # on ne pénalise pas le domaine pour une limite du scanner.
+            score, status, severity = 100, "success", SeverityLevel.LOW
         elif emails_val == 0:
             score, status, severity = 100, "success", SeverityLevel.LOW
         elif emails_val <= 5:

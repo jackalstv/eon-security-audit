@@ -8,7 +8,7 @@ from api.models import ModuleResult, SeverityLevel
 
 
 def _parse_expiration_date(raw) -> Optional[datetime]:
-    """Normalise la date d'expiration en datetime UTC-aware, quelle que soit la forme retournée par python-whois."""
+    #Normalise la date d'expiration en datetime UTC-aware, quelle que soit la forme retournée par python-whois.
     if isinstance(raw, list):
         # Prendre la première valeur non-None de la liste
         candidates = [x for x in raw if x is not None]
@@ -33,7 +33,7 @@ def _parse_expiration_date(raw) -> Optional[datetime]:
 
 
 def analyze_domain_expiration(domain: str) -> ModuleResult:
-    """Vérifie la date d'expiration du domaine via WHOIS"""
+    #Vérifie la date d'expiration du domaine via WHOIS
     try:
         details = {}
         recommendations = []

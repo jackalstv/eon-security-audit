@@ -118,14 +118,14 @@ def _check_http_body(subdomain: str, signatures: list[str]) -> bool:
     return False
 
 
-def _is_dangling_cname(cname: str, signatures: dict) -> tuple[bool, str]:
-
+def _find_vulnerable_signature(cname: str):
+    # Retourne la signature du service vulnérable correspondant au CNAME, ou None
     cname_lower = cname.lower()
-    for _, sig in signatures.items():
+    for sig in VULNERABLE_SIGNATURES.values():
         for pattern in sig["cname_contains"]:
             if pattern in cname_lower:
-                return True, sig["service"]
-    return False, ""
+                return sig
+    return None
 
 
 def detect_subdomain_takeover(domain: str) -> ModuleResult:
@@ -146,19 +146,14 @@ def detect_subdomain_takeover(domain: str) -> ModuleResult:
                 continue  # sous-domaine sans CNAME externe, pas de risque
 
             checked += 1  # sous-domaine avec CNAME vers un service tiers
-            is_dangling, service_name = _is_dangling_cname(cname, VULNERABLE_SIGNATURES)
+            signature = _find_vulnerable_signature(cname)
 
-            if not is_dangling:
+            if signature is None:
                 continue
 
             # CNAME pointe vers un service connu vulnérable — vérifier si orphelin
-            sig_key = next(
-                (k for k, v in VULNERABLE_SIGNATURES.items()
-                 if any(p in cname.lower() for p in v["cname_contains"])),
-                None,
-            )
-            body_signatures = VULNERABLE_SIGNATURES[sig_key]["body_contains"] if sig_key else []
-            is_orphan = _check_http_body(fqdn, body_signatures)
+            service_name = signature["service"]
+            is_orphan = _check_http_body(fqdn, signature["body_contains"])
 
             entry = {
                 "subdomain": fqdn,

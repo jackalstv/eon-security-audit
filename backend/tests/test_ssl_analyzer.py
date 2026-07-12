@@ -1,3 +1,4 @@
+import ssl
 from unittest.mock import patch, MagicMock
 from datetime import datetime, timedelta
 from analyzers.ssl_analyzer import analyze_ssl
@@ -72,6 +73,63 @@ def test_score_reduit_cert_expire_bientot():
 
     assert result.score == 50  # 30 (TLS) + 20 (expire bientôt) + 0 (pas HSTS)
     assert any("expire" in r.lower() for r in result.recommendations)
+
+
+def test_hsts_non_verifiable_score_rescale_sur_verifiable():
+    """HTTPS injoignable pour lire HSTS + TLS/cert parfaits → 70/70 vérifiables → score 100."""
+    mock_ctx, mock_conn, _ = _setup_ssl_mocks('Dec 31 23:59:59 2030 GMT', 'TLSv1.3')
+
+    with patch('analyzers.ssl_analyzer.ssl.create_default_context', return_value=mock_ctx), \
+         patch('analyzers.ssl_analyzer.socket.create_connection', return_value=mock_conn), \
+         patch('analyzers.ssl_analyzer.requests.get', side_effect=Exception("timeout")):
+        result = analyze_ssl("example.com")
+
+    assert result.score == 100
+    assert result.severity == SeverityLevel.LOW
+    assert result.details["hsts"] == "non évalué (site injoignable en HTTPS depuis le scanner)"
+    assert "bareme" in result.details
+
+
+def test_cert_expire_rejete_au_handshake():
+    """Certificat expiré → le handshake échoue → diagnostic précis, pas d'erreur générique."""
+    error = ssl.SSLCertVerificationError()
+    error.verify_message = "certificate has expired"
+    mock_ctx = MagicMock()
+    mock_ctx.wrap_socket.side_effect = error
+    mock_conn = MagicMock()
+    mock_conn.__enter__.return_value = MagicMock()
+    mock_conn.__exit__.return_value = False  # ne pas avaler l'exception du with
+
+    with patch('analyzers.ssl_analyzer.ssl.create_default_context', return_value=mock_ctx), \
+         patch('analyzers.ssl_analyzer.socket.create_connection', return_value=mock_conn), \
+         patch('analyzers.ssl_analyzer._fetch_expiry_ignore_validation', side_effect=Exception("inaccessible")):
+        result = analyze_ssl("expired.example.com")
+
+    assert result.score == 0
+    assert result.severity == SeverityLevel.CRITICAL
+    assert result.details["certificate"] == "EXPIRÉ"
+    assert any("expiré" in r.lower() for r in result.recommendations)
+    assert not any("utilise HTTPS" in r for r in result.recommendations)
+
+
+def test_cert_invalide_auto_signe():
+    """Certificat auto-signé → diagnostic INVALIDE avec recommandation adaptée."""
+    error = ssl.SSLCertVerificationError()
+    error.verify_message = "self-signed certificate"
+    mock_ctx = MagicMock()
+    mock_ctx.wrap_socket.side_effect = error
+    mock_conn = MagicMock()
+    mock_conn.__enter__.return_value = MagicMock()
+    mock_conn.__exit__.return_value = False
+
+    with patch('analyzers.ssl_analyzer.ssl.create_default_context', return_value=mock_ctx), \
+         patch('analyzers.ssl_analyzer.socket.create_connection', return_value=mock_conn), \
+         patch('analyzers.ssl_analyzer._fetch_expiry_ignore_validation', side_effect=Exception("inaccessible")):
+        result = analyze_ssl("selfsigned.example.com")
+
+    assert result.score == 0
+    assert result.details["certificate"] == "INVALIDE"
+    assert any("rejeté par les navigateurs" in r for r in result.recommendations)
 
 
 def test_recommendation_tls_obsolete():

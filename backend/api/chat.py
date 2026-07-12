@@ -60,7 +60,8 @@ async def chat(scan_id: str, body: ChatRequest, db: Session = Depends(get_db)):
 
     client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
 
-    messages = [{"role": m.role, "content": m.content} for m in body.history]
+    # Borner l'historique : sans limite, le prompt grossit à chaque tour de conversation
+    messages = [{"role": m.role, "content": m.content} for m in body.history[-20:]]
     messages.append({"role": "user", "content": body.message})
 
     async def stream():
