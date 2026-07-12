@@ -1,5 +1,7 @@
 
 import requests
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from api.models import ModuleResult, SeverityLevel
 
 
@@ -10,23 +12,28 @@ def analyze_security_headers(domain: str) -> ModuleResult:
         details = {}
         recommendations = []
 
-        # Requête HTTP(S)
-        try:
-            response = requests.get(
-                f"https://{domain}",
-                timeout=10,
-                headers={"User-Agent": "Mozilla/5.0"},
-                allow_redirects=True
-            )
-            headers = response.headers
-        except Exception:
-            response = requests.get(
-                f"http://{domain}",
-                timeout=10,
-                headers={"User-Agent": "Mozilla/5.0"},
-                allow_redirects=True
-            )
-            headers = response.headers
+        # Requête HTTP(S) — 3 tentatives : HTTPS, HTTPS sans vérif cert, HTTP
+        headers = None
+        for url, verify in [
+            (f"https://{domain}", True),
+            (f"https://{domain}", False),
+            (f"http://{domain}", True),
+        ]:
+            try:
+                response = requests.get(
+                    url,
+                    timeout=10,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                    allow_redirects=True,
+                    verify=verify,
+                )
+                headers = response.headers
+                break
+            except Exception:
+                continue
+
+        if headers is None:
+            raise ConnectionError("Impossible de joindre le domaine en HTTP ni HTTPS")
 
         # 1. Content-Security-Policy (25 points)
         if "Content-Security-Policy" in headers:
