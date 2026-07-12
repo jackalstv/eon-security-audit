@@ -88,8 +88,8 @@ def _db_to_result(record: ScanRecord) -> ScanResult:
 
 @router.post("/scan", response_model=ScanResponse)
 def start_scan(request: ScanRequest, db: Session = Depends(get_db)):
-    # def (et non async def) : FastAPI exécute alors l'endpoint dans un threadpool,
-    # sinon les 7 analyseurs synchrones bloqueraient l'event loop pendant tout le scan.
+    # pas de async ici : les analyseurs sont synchrones et bloqueraient
+    # le serveur pendant tout le scan (FastAPI met les def dans un threadpool)
     try:
         scan_id = str(uuid.uuid4())
 

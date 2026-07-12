@@ -7,7 +7,7 @@ from api.models import ModuleResult, SeverityLevel
 
 
 def _fetch_expiry_ignore_validation(domain: str) -> datetime.datetime:
-    #Lit la date d'expiration d'un certificat rejeté par le handshake (connexion sans validation)
+    #Récupère la date d'expiration d'un certificat rejeté (connexion sans validation du certificat)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -18,8 +18,8 @@ def _fetch_expiry_ignore_validation(domain: str) -> datetime.datetime:
 
 
 def _invalid_cert_result(domain: str, error: ssl.SSLCertVerificationError) -> ModuleResult:
-    #Certificat rejeté par le handshake : diagnostic précis (expiré, auto-signé, mauvais domaine…)
-    # verify_message donne la cause exacte ("certificate has expired", "self-signed certificate"…)
+    #Le handshake a rejeté le certificat : on essaie de dire pourquoi (expiré, auto-signé...)
+    # verify_message contient la raison ("certificate has expired", "self-signed certificate"...)
     reason = getattr(error, "verify_message", "")
     if not reason:
         reason = str(error)
@@ -37,7 +37,7 @@ def _invalid_cert_result(domain: str, error: ssl.SSLCertVerificationError) -> Mo
             is_expired = True
             details["certificate"] = f"EXPIRÉ depuis {days_expired} jour(s)"
     except Exception:
-        pass  # date non récupérable : le diagnostic reste basé sur le message du handshake
+        pass  # tant pis, on garde juste le message du handshake
 
     if is_expired:
         recommendation = (
@@ -71,8 +71,8 @@ def analyze_ssl(domain: str) -> ModuleResult:
         recommendations = []
 
         # 1. Récupérer le certificat SSL et vérifier TLS
-        # Le handshake valide le certificat : un certificat expiré/invalide échoue ici,
-        # d'où le diagnostic dédié plutôt que le except générique de fin de fonction.
+        # Un certificat expiré ou invalide fait échouer le handshake, on le traite
+        # à part pour donner un vrai diagnostic au lieu d'une erreur générique
         context = ssl.create_default_context()
         try:
             with socket.create_connection((domain, 443), timeout=10) as sock:
@@ -137,14 +137,12 @@ def analyze_ssl(domain: str) -> ModuleResult:
             hsts_unverifiable = True
             details['hsts'] = 'non évalué (site injoignable en HTTPS depuis le scanner)'
 
-        # HSTS invérifiable : les 30 points sont exclus du barème.
-        # On note sur les 70 points vérifiables (TLS + certificat), remis à l'échelle sur 100,
-        # pour ne pas pénaliser le domaine à cause d'une limite du scanner.
+        # HSTS pas vérifiable : on note sur les 70 points restants et on remet sur 100
         if hsts_unverifiable:
             details['bareme'] = 'score calculé sur les vérifications réalisables uniquement'
             score = round(score * 100 / 70)
 
-        # Message positif uniquement si HSTS est réellement actif (pas juste invérifiable ou désactivé)
+        # message positif seulement si HSTS est vraiment actif
         if not recommendations and details['hsts'].startswith('Activé'):
             recommendations.append(
                 "Votre configuration SSL/TLS est bonne : protocole sécurisé, certificat valide et HSTS actif."

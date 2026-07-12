@@ -129,9 +129,8 @@ def analyze_email(domain: str) -> ModuleResult:
             details["starttls"] = "non applicable"
             details["smtp_banner"] = "non applicable"
 
-        # Ports SMTP filtrés : les 55 points STARTTLS/bannière sont invérifiables.
-        # On note sur les 45 points vérifiables (MX + redondance), remis à l'échelle sur 100,
-        # pour ne pas pénaliser le domaine à cause d'une limite du scanner.
+        # Ports SMTP filtrés : impossible de vérifier STARTTLS et la bannière (55 pts),
+        # on note sur les 45 points vérifiables et on remet sur 100
         if smtp_unreachable:
             details["bareme"] = "score calculé sur les vérifications réalisables uniquement"
             score = round(score * 100 / 45)

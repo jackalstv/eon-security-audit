@@ -168,8 +168,7 @@ def analyze_osint_breaches(domain: str) -> ModuleResult:
         elif has_source_breach:
             score, status, severity = 35, "warning", SeverityLevel.HIGH
         elif isinstance(emails_val, str):
-            # Vérification des emails impossible (pas de clé API) : critère exclu du score,
-            # on ne pénalise pas le domaine pour une limite du scanner.
+            # pas de clé API pour vérifier les emails, on ne pénalise pas pour ça
             score, status, severity = 100, "success", SeverityLevel.LOW
         elif emails_val == 0:
             score, status, severity = 100, "success", SeverityLevel.LOW

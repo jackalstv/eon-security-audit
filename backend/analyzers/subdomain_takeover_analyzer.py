@@ -151,7 +151,7 @@ def _run_takeover_check(domain: str) -> ModuleResult:
             if signature is None:
                 continue
 
-            # CNAME pointe vers un service connu vulnérable — vérifier si orphelin
+            # CNAME vers un service connu vulnérable, on vérifie si le service est orphelin
             service_name = signature["service"]
             is_orphan = _check_http_body(fqdn, signature["body_contains"])
 
