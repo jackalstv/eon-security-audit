@@ -53,54 +53,71 @@ def analyze_email(domain: str) -> ModuleResult:
         else:
             details["mx_redundancy"] = "non applicable"
 
-        # 3+4. Une seule connexion SMTP pour vérifier STARTTLS et bannière
+        # 3+4. Vérifier STARTTLS et bannière SMTP
         if mx_hosts:
-            try:
-                smtp = smtplib.SMTP(mx_hosts[0], 25, timeout=10)
-                # La bannière est dans la réponse initiale du serveur
-                banner = smtp.getwelcome().decode('utf-8', errors='ignore').strip() if isinstance(smtp.getwelcome(), bytes) else str(smtp.getwelcome())
-                smtp.ehlo()
+            # Providers cloud connus : STARTTLS garanti, bannière non exposée
+            if is_m365:
+                score += 30 + 25
+                details["starttls"] = "supporté (Microsoft 365)"
+                details["smtp_banner"] = "géré par Microsoft 365"
+                details["banner_exposure"] = "discret (géré par Microsoft)"
+            elif is_google:
+                score += 30 + 25
+                details["starttls"] = "supporté (Google Workspace)"
+                details["smtp_banner"] = "géré par Google Workspace"
+                details["banner_exposure"] = "discret (géré par Google)"
+            else:
+                # Tenter une connexion SMTP sur port 25, puis 587 en fallback
+                smtp_connected = False
+                for port in [25, 587]:
+                    try:
+                        smtp = smtplib.SMTP(mx_hosts[0], port, timeout=10)
+                        banner_raw = smtp.getwelcome()
+                        banner = banner_raw.decode('utf-8', errors='ignore').strip() if isinstance(banner_raw, bytes) else str(banner_raw)
+                        smtp.ehlo()
 
-                # Vérifier STARTTLS (30 points)
-                if smtp.has_extn('STARTTLS'):
-                    score += 30
-                    details["starttls"] = "supporté"
-                else:
-                    details["starttls"] = "non supporté"
+                        if smtp.has_extn('STARTTLS'):
+                            score += 30
+                            details["starttls"] = f"supporté (port {port})"
+                        else:
+                            details["starttls"] = "non supporté"
+                            recommendations.append(
+                                "Les emails reçus sur votre serveur ne sont pas chiffrés pendant leur transit. "
+                                "Le contenu de vos emails professionnels pourrait être intercepté par un tiers. "
+                                "Contactez votre prestataire de messagerie pour activer le chiffrement STARTTLS."
+                            )
+
+                        details["smtp_banner"] = banner
+                        keywords_verbose = ["version", "ubuntu", "debian", "centos", "postfix"]
+                        is_verbose = any(kw in banner.lower() for kw in keywords_verbose)
+                        if not is_verbose:
+                            score += 25
+                            details["banner_exposure"] = "discret"
+                        else:
+                            details["banner_exposure"] = "trop d'informations exposées"
+                            recommendations.append(
+                                "Votre serveur de messagerie révèle des informations techniques à quiconque le contacte "
+                                "(version du logiciel, système d'exploitation). Ces informations aident les pirates à "
+                                "cibler des failles connues. Demandez à votre administrateur système de masquer ces données."
+                            )
+
+                        smtp.quit()
+                        smtp_connected = True
+                        break
+                    except Exception:
+                        continue
+
+                if not smtp_connected:
+                    score += 30  # bénéfice du doute
+                    details["starttls"] = "non vérifiable (ports 25 et 587 inaccessibles)"
+                    details["smtp_banner"] = "non récupérable"
+                    details["banner_exposure"] = "non vérifiable"
                     recommendations.append(
-                        "Les emails reçus sur votre serveur ne sont pas chiffrés pendant leur transit. "
-                        "Le contenu de vos emails professionnels pourrait être intercepté par un tiers. "
-                        "Contactez votre prestataire de messagerie (Microsoft 365, Google Workspace, ou votre hébergeur) "
-                        "pour activer le chiffrement des emails entrants."
+                        "La vérification du chiffrement STARTTLS n'a pas pu être effectuée "
+                        "(ports 25 et 587 filtrés). "
+                        "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
+                        "et que la bannière SMTP ne révèle pas la version du logiciel."
                     )
-
-                # Vérifier bannière (25 points)
-                details["smtp_banner"] = banner
-                keywords_verbose = ["version", "ubuntu", "debian", "centos", "postfix"]
-                is_verbose = any(kw in banner.lower() for kw in keywords_verbose)
-                if not is_verbose:
-                    score += 25
-                    details["banner_exposure"] = "discret"
-                else:
-                    details["banner_exposure"] = "trop d'informations exposées"
-                    recommendations.append(
-                        "Votre serveur de messagerie révèle des informations techniques à quiconque le contacte "
-                        "(version du logiciel, système d'exploitation). Ces informations aident les pirates à "
-                        "cibler des failles connues. Demandez à votre administrateur système de masquer ces données."
-                    )
-
-                smtp.quit()
-            except Exception:
-                score += 30  # bénéfice du doute : port 25 souvent filtré sur Exchange/Google
-                details["starttls"] = "non vérifiable (port 25 inaccessible depuis le scanner)"
-                details["smtp_banner"] = "non récupérable (port 25 inaccessible)"
-                details["banner_exposure"] = "non vérifiable"
-                recommendations.append(
-                    "La vérification du chiffrement STARTTLS et de la bannière SMTP n'a pas pu être effectuée "
-                    "depuis notre scanner (port 25 filtré par votre hébergeur ou pare-feu). "
-                    "Si vous gérez votre propre serveur mail, vérifiez que STARTTLS est bien activé "
-                    "et que la bannière SMTP ne révèle pas la version du logiciel."
-                )
         else:
             details["starttls"] = "non applicable"
             details["smtp_banner"] = "non applicable"
