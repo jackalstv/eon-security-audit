@@ -4,11 +4,21 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 from api.models import ModuleResult, SeverityLevel
 
 
+def _check_dnskey(domain: str):
+    """Vérifie directement la présence d'enregistrements DNSKEY (signe que DNSSEC est activé).
+    Retourne True/False, ou None si la requête n'a pas abouti (timeout, résolveur injoignable)."""
+    try:
+        dns.resolver.resolve(domain, 'DNSKEY', lifetime=5)
+        return True
+    except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
+        return False  # réponse claire du DNS : pas de DNSKEY, donc pas de DNSSEC
+    except Exception:
+        return None  # requête échouée : impossible de conclure
+
+
 def _fallback_dns_check(domain: str) -> dict:
-    """Vérification DNS basique via dnspython quand checkdmarc timeout.
-    DNSSEC n'est pas vérifiable par ce fallback : on renvoie None (≠ False)
-    pour que le critère soit exclu du barème au lieu de pénaliser le domaine."""
-    result = {'spf': {'valid': False}, 'dmarc': {'valid': False, 'record': None}, 'dnssec': None, 'mx': {'hosts': []}}
+    """Vérification DNS basique via dnspython quand checkdmarc timeout."""
+    result = {'spf': {'valid': False}, 'dmarc': {'valid': False, 'record': None}, 'dnssec': _check_dnskey(domain), 'mx': {'hosts': []}}
     try:
         txts = dns.resolver.resolve(domain, 'TXT', lifetime=5)
         for r in txts:
@@ -86,13 +96,20 @@ def analyze_dns(domain: str) -> ModuleResult:
             )
 
         # 3. Vérifier DNSSEC (20 points)
-        dnssec_unverifiable = False
-        if result.get('dnssec'):
+        dnssec_ok = result.get('dnssec')
+        if dnssec_ok is False:
+            # Le test DNSSEC de checkdmarc échoue parfois à tort (timeout interne) :
+            # contre-vérification directe des DNSKEY avant de pénaliser le domaine
+            recheck = _check_dnskey(domain)
+            if recheck is not None:
+                dnssec_ok = recheck
+
+        dnssec_unverifiable = dnssec_ok is None
+        if dnssec_ok:
             score += 20
             details['dnssec'] = 'activé'
-        elif result.get('dnssec') is None:
-            # Fallback dnspython utilisé : DNSSEC non vérifié, critère exclu du barème
-            dnssec_unverifiable = True
+        elif dnssec_unverifiable:
+            # Vérification impossible : critère exclu du barème
             details['dnssec'] = 'non évalué (vérification DNS interrompue)'
         else:
             details['dnssec'] = 'désactivé'

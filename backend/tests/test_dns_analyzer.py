@@ -61,8 +61,22 @@ def test_dnssec_non_evalue_score_rescale(mock_check):
     assert "bareme" in result.details
 
 
+@patch('analyzers.dns_analyzer._check_dnskey', return_value=True)
 @patch('analyzers.dns_analyzer.checkdmarc.check_domains')
-def test_score_zero_rien_configure(mock_check):
+def test_dnssec_faux_negatif_checkdmarc_rattrape(mock_check, mock_dnskey):
+    """checkdmarc rate le test DNSSEC mais les DNSKEY existent → contre-vérification → score 100."""
+    mock_check.return_value = _resultat_checkdmarc(dnssec=False)
+
+    result = analyze_dns("example.com")
+
+    assert result.score == 100
+    assert result.details["dnssec"] == "activé"
+    assert not any("DNSSEC" in r for r in result.recommendations)
+
+
+@patch('analyzers.dns_analyzer._check_dnskey', return_value=False)
+@patch('analyzers.dns_analyzer.checkdmarc.check_domains')
+def test_score_zero_rien_configure(mock_check, mock_dnskey):
     """Sans SPF, DMARC, DNSSEC et MX → score 0, sévérité CRITIQUE."""
     mock_check.return_value = _resultat_checkdmarc(spf=False, dmarc=False, dnssec=False, mx=False)
 
