@@ -116,6 +116,10 @@ def start_scan(request: ScanRequest, db: Session = Depends(get_db)):
             overall_score=overall_score,
             modules=all_modules,
             summary="Scan complété.",
+            critical_issues=sum(1 for m in all_modules if m.severity == SeverityLevel.CRITICAL),
+            high_issues=sum(1 for m in all_modules if m.severity == SeverityLevel.HIGH),
+            medium_issues=sum(1 for m in all_modules if m.severity == SeverityLevel.MEDIUM),
+            low_issues=sum(1 for m in all_modules if m.severity == SeverityLevel.LOW),
         )
 
         db.add(_result_to_db(scan_id, result))
@@ -165,6 +169,10 @@ async def start_scan_stream(request: ScanRequest, db: Session = Depends(get_db))
             overall_score=overall_score,
             modules=modules,
             summary="Scan complété.",
+            critical_issues=sum(1 for m in modules if m.severity == SeverityLevel.CRITICAL),
+            high_issues=sum(1 for m in modules if m.severity == SeverityLevel.HIGH),
+            medium_issues=sum(1 for m in modules if m.severity == SeverityLevel.MEDIUM),
+            low_issues=sum(1 for m in modules if m.severity == SeverityLevel.LOW),
         )
         db.add(_result_to_db(scan_id, scan_result))
         db.commit()

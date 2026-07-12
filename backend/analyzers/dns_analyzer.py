@@ -1,6 +1,34 @@
 import checkdmarc
+import dns.resolver
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from api.models import ModuleResult, SeverityLevel
+
+
+def _fallback_dns_check(domain: str) -> dict:
+    """Vérification DNS basique via dnspython quand checkdmarc timeout."""
+    result = {'spf': {'valid': False}, 'dmarc': {'valid': False, 'record': None}, 'dnssec': False, 'mx': {'hosts': []}}
+    try:
+        txts = dns.resolver.resolve(domain, 'TXT', lifetime=5)
+        for r in txts:
+            if 'v=spf1' in str(r).lower():
+                result['spf']['valid'] = True
+    except Exception:
+        pass
+    try:
+        dmrcs = dns.resolver.resolve(f'_dmarc.{domain}', 'TXT', lifetime=5)
+        for r in dmrcs:
+            if 'v=dmarc1' in str(r).lower():
+                result['dmarc']['valid'] = True
+                result['dmarc']['record'] = str(r).strip('"')
+    except Exception:
+        pass
+    try:
+        mxs = dns.resolver.resolve(domain, 'MX', lifetime=5)
+        result['mx']['hosts'] = [str(mx.exchange).rstrip('.') for mx in mxs]
+    except Exception:
+        pass
+    return result
+
 
 def analyze_dns(domain: str) -> ModuleResult:
     try:
@@ -10,17 +38,10 @@ def analyze_dns(domain: str) -> ModuleResult:
         # par email_analyzer).
         future = executor.submit(checkdmarc.check_domains, [domain], skip_tls=True)
         try:
-            result = future.result(timeout=20)
+            result = future.result(timeout=35)
         except FuturesTimeoutError:
             executor.shutdown(wait=False)
-            return ModuleResult(
-                module_name="DNS Security",
-                status="warning",
-                severity=SeverityLevel.MEDIUM,
-                score=0,
-                details={"error": "timeout lors de la vérification DNS"},
-                recommendations=["La vérification DNS n'a pas pu aboutir dans le délai imparti."]
-            )
+            result = _fallback_dns_check(domain)
         executor.shutdown(wait=False)
         
         # Initialiser le score

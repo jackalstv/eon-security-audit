@@ -1,8 +1,8 @@
 from datetime import datetime
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
+from jinja2 import Environment, FileSystemLoader  # type: ignore
+from weasyprint import HTML  # type: ignore
 
 from api.models import ScanResult
 

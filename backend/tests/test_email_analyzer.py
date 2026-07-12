@@ -43,8 +43,8 @@ def test_m365_mx_pas_de_penalite_redondance():
     assert not any("seul serveur" in r for r in result.recommendations)
 
 
-def test_port_25_filtre_score_rescale_sur_verifiable():
-    """Port 25 filtré + MX/redondance parfaits → 45/45 points vérifiables → score 100."""
+def test_ports_smtp_filtres_score_rescale_sur_verifiable():
+    """Ports 25/587 filtrés + MX/redondance parfaits → 45/45 points vérifiables → score 100."""
     mx_records = [_make_mx_record("mail1.example.com"), _make_mx_record("mail2.example.com")]
 
     with patch('analyzers.email_analyzer.dns.resolver.resolve', return_value=mx_records), \
@@ -53,11 +53,11 @@ def test_port_25_filtre_score_rescale_sur_verifiable():
 
     assert result.score == 100
     assert result.severity == SeverityLevel.LOW
-    assert result.details["starttls"] == "non évalué (port 25 inaccessible depuis le scanner)"
+    assert result.details["starttls"] == "non évalué (ports 25 et 587 inaccessibles depuis le scanner)"
 
 
-def test_port_25_filtre_mx_unique_score_partiel():
-    """Port 25 filtré + 1 seul MX générique → 25/45 points vérifiables → score 56."""
+def test_ports_smtp_filtres_mx_unique_score_partiel():
+    """Ports 25/587 filtrés + 1 seul MX générique → 25/45 points vérifiables → score 56."""
     mx_records = [_make_mx_record("mail.example.com")]
 
     with patch('analyzers.email_analyzer.dns.resolver.resolve', return_value=mx_records), \

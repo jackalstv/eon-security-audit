@@ -132,7 +132,11 @@ def analyze_ssl(domain: str) -> ModuleResult:
                 details['hsts'] = f'Activé ({hsts_value})'
             else:
                 details['hsts'] = 'Désactivé'
-                # Recommandation gérée par Security Headers pour éviter la duplication
+                recommendations.append(
+                    "Votre site n'impose pas les connexions sécurisées (HTTPS) à ses visiteurs. "
+                    "Un visiteur pourrait accéder à votre site en HTTP non chiffré et voir ses données interceptées. "
+                    "Demandez à votre hébergeur ou développeur d'activer HSTS (Strict-Transport-Security)."
+                )
         except Exception:
             hsts_unverifiable = True
             details['hsts'] = 'non évalué (site injoignable en HTTPS depuis le scanner)'
@@ -143,6 +147,11 @@ def analyze_ssl(domain: str) -> ModuleResult:
         if hsts_unverifiable:
             details['bareme'] = 'score calculé sur les vérifications réalisables uniquement'
             score = round(score * 100 / 70)
+
+        if not recommendations and not hsts_unverifiable:
+            recommendations.append(
+                "Votre configuration SSL/TLS est bonne : protocole sécurisé, certificat valide et HSTS actif."
+            )
 
         # Détermination status & severity (ALIGNÉ DNS)
         if score >= 80:

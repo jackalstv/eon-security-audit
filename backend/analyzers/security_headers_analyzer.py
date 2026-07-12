@@ -44,7 +44,6 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site n'est pas protégé contre l'injection de code malveillant (attaques XSS). "
                 "Un pirate pourrait afficher du faux contenu à vos visiteurs ou voler leurs données. "
-                ""
                 "Demandez à votre développeur d'activer la Content Security Policy."
             )
 
@@ -57,7 +56,6 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site peut être intégré dans une autre page web à votre insu, "
                 "permettant de tromper vos visiteurs en leur faisant croire qu'ils interagissent avec votre site. "
-                ""
                 "Demandez à votre développeur d'activer la protection X-Frame-Options."
             )
 
@@ -70,7 +68,6 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site laisse les navigateurs interpréter librement le type des fichiers téléchargés, "
                 "ce qui peut permettre l'exécution de fichiers malveillants. "
-                ""
                 "Demandez à votre développeur d'activer X-Content-Type-Options."
             )
 
@@ -83,7 +80,6 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site n'impose pas les connexions sécurisées (HTTPS). "
                 "Des visiteurs pourraient accéder à votre site sans chiffrement et voir leurs données interceptées. "
-                ""
                 "Demandez à votre développeur d'activer HSTS."
             )
 
@@ -96,7 +92,6 @@ def analyze_security_headers(domain: str) -> ModuleResult:
             recommendations.append(
                 "Votre site transmet des informations sur la navigation de vos visiteurs à des sites tiers "
                 "(pages visitées, URLs internes). "
-                ""
                 "Demandez à votre développeur de configurer la Referrer Policy."
             )
 
