@@ -65,10 +65,19 @@ def analyze_ssl(domain: str) -> ModuleResult:
                 details['hsts'] = f'Activé ({hsts_value})'
             else:
                 details['hsts'] = 'Désactivé'
-                # Recommandation gérée par Security Headers pour éviter la duplication
+                recommendations.append(
+                    "Votre site n'impose pas les connexions sécurisées (HTTPS) à ses visiteurs. "
+                    "Un visiteur pourrait accéder à votre site en HTTP non chiffré et voir ses données interceptées. "
+                    "Demandez à votre hébergeur ou développeur d'activer HSTS (Strict-Transport-Security)."
+                )
         except Exception:
             details['hsts'] = 'Non vérifiable'
-        
+
+        if not recommendations:
+            recommendations.append(
+                "Votre configuration SSL/TLS est bonne : protocole sécurisé, certificat valide et HSTS actif."
+            )
+
         # Détermination status & severity (ALIGNÉ DNS)
         if score >= 80:
             status = "success"
