@@ -1,0 +1,771 @@
+# ÉON — Documentation technique pour la présentation
+
+> Outil web d'audit de sécurité pour TPE/PME. On saisit un nom de domaine, ÉON exécute
+> 7 modules d'analyse **passive** (aucune attaque, 100 % légal), calcule un score global
+> sur 100, génère un rapport PDF et propose un assistant IA pour expliquer les résultats.
+>
+> Démo live : http://132.145.74.215
+
+---
+
+## 1. Vue d'ensemble de l'architecture
+
+```
+┌─────────────────────┐         ┌──────────────────────────────────────┐
+│      FRONTEND       │         │              BACKEND                 │
+│  SPA HTML/CSS/JS    │  HTTP   │           FastAPI (Python)           │
+│  vanilla (app.js)   │────────▶│                                      │
+│                     │  SSE    │  /api/v1/scan/stream  ← scan live    │
+│  servi par nginx    │◀────────│  /api/v1/scan/{id}/pdf ← rapport     │
+│  (prod) ou file://  │         │  /api/v1/chat/{id}     ← IA          │
+└─────────────────────┘         └──────┬───────────┬─────────┬─────────┘
+                                       │           │         │
+                                ┌──────▼─────┐ ┌───▼────┐ ┌──▼───────────┐
+                                │ 7 analyzers│ │ SQLite │ │ API externes │
+                                │ (modules)  │ │ eon.db │ │ HIBP, URLhaus│
+                                └────────────┘ └────────┘ │ WHOIS, DNS   │
+                                                          │ Claude (IA)  │
+                                                          └──────────────┘
+```
+
+**Stack technique :**
+
+| Couche | Technologie | Rôle |
+|---|---|---|
+| Frontend | HTML/CSS/JS vanilla (pas de framework) | SPA à 3 pages : formulaire → chargement → résultats |
+| Backend | FastAPI + Uvicorn (Python 3.11) | API REST + streaming SSE |
+| Validation | Pydantic v2 | Modèles typés, validation du domaine en entrée |
+| Base de données | SQLite + SQLAlchemy (ORM) | Persistance des scans et des résultats de modules |
+| PDF | Jinja2 + WeasyPrint | Template HTML → rendu PDF |
+| IA | API Anthropic (Claude Haiku) | Chatbot contextualisé sur les résultats du scan |
+| Déploiement | Docker (backend) + nginx (frontend) sur VPS Oracle Cloud | Production |
+
+**Arborescence :**
+
+```
+backend/
+├── main.py                  # Point d'entrée FastAPI (app, CORS, lifespan)
+├── config.py                # Settings (pydantic-settings, lit le .env)
+├── database.py              # Engine SQLAlchemy + session
+├── db_models.py             # Tables ORM : scans, modules
+├── pdf_report.py            # Génération du rapport PDF
+├── api/
+│   ├── routes.py            # Endpoints de scan (POST /scan, /scan/stream, GET pdf…)
+│   ├── chat.py              # Endpoint du chatbot IA
+│   └── models.py            # Modèles Pydantic (ScanRequest, ScanResult…)
+├── analyzers/               # Les 7 modules + détection de plateforme
+├── templates/report.html.j2 # Template Jinja2 du PDF
+└── tests/                   # Tests unitaires (mocks) + intégration
+frontend/
+├── index.html               # Coquille vide (<div id="app">)
+├── app.js                   # Toute la logique SPA (~580 lignes)
+└── styles.css
+```
+
+---
+
+## 2. Cycle de vie d'un scan (le flux principal)
+
+C'est **LE** parcours à raconter en présentation :
+
+1. **L'utilisateur saisit un domaine** dans le frontend (`buildScan()` dans `app.js`).
+2. Le frontend envoie `POST /api/v1/scan/stream` avec `{"domain": "exemple.com"}`.
+3. **Validation Pydantic** (`api/models.py`, `ScanRequest`) :
+   - nettoyage (`https://`, `www.`, minuscules) ;
+   - regex de format de domaine ;
+   - **résolution DNS réelle** (enregistrement A, sinon MX) — un domaine inexistant est rejeté avant tout scan.
+4. Le backend vérifie une dernière fois que le domaine résout (`socket.getaddrinfo`), génère un
+   `scan_id` (UUID v4), puis détecte la **plateforme** (Shopify/Wix/WordPress/custom).
+5. Les **7 modules s'exécutent séquentiellement**. Avant chaque module, le serveur pousse un
+   événement **SSE** (Server-Sent Events) :
+   ```
+   data: {"step": "DNS Security", "progress": 0, "total": 7}
+   ```
+   → le frontend met à jour la barre de progression **en temps réel**.
+   Chaque module est une fonction synchrone (I/O réseau bloquant), exécutée via
+   `run_in_threadpool` pour ne pas bloquer la boucle asyncio de FastAPI.
+6. **Score global** = moyenne des 7 scores de modules (`sum // 7`).
+7. Le résultat complet est **persisté en base** (table `scans` + table `modules`, relation 1-N
+   avec cascade delete), puis envoyé au frontend dans un dernier événement SSE
+   `{"done": true, "scan_id": …, "result": {…}}`.
+8. Le frontend affiche la page résultats : score, cartes par module (dépliables avec détails +
+   recommandations), plan d'actions priorisé par sévérité, bouton PDF, chatbot IA.
+
+> Il existe aussi un endpoint `POST /scan` classique (sans streaming) qui fait la même chose
+> d'un bloc — utile pour les tests et l'API pure.
+
+### Pourquoi SSE et pas WebSocket ?
+Le flux est **unidirectionnel** (serveur → client) : SSE suffit, c'est du simple HTTP
+(`text/event-stream`), plus léger à implémenter et compatible avec `fetch` + `ReadableStream`
+côté navigateur. Le header `X-Accel-Buffering: no` empêche nginx de mettre le flux en tampon.
+
+---
+
+## 3. Le système de scoring (commun à tous les modules)
+
+Chaque module retourne un objet `ModuleResult` :
+
+```python
+ModuleResult(
+    module_name="DNS Security",
+    status="success" | "warning" | "error",
+    severity=CRITICAL | HIGH | MEDIUM | LOW | INFO,
+    score=0..100,                    # points gagnés selon les vérifications
+    details={...},                   # données brutes affichées dans l'UI/PDF
+    recommendations=[...],           # conseils rédigés pour un non-technicien
+)
+```
+
+La plupart des modules **additionnent des points** par vérification réussie, puis convertissent
+le score en sévérité selon une grille commune :
+
+| Score | Status | Sévérité |
+|---|---|---|
+| ≥ 80 | success | LOW |
+| 50–79 | warning | MEDIUM |
+| 30–49 | warning | HIGH |
+| < 30 | error | CRITICAL |
+
+**D'où vient quoi ? (distinction importante à faire devant le jury)**
+
+- **Les points de contrôle** (le *quoi* : SPF, DMARC, DNSSEC, TLS 1.2+, headers HTTP, STARTTLS,
+  bannière discrète, surface exposée minimale…) sont issus des référentiels **ANSSI** (guides
+  « noms de domaine », « TLS », « sécurisation des sites web ») et **OWASP** (Secure Headers).
+- **Le système de notation** (le *combien* : barèmes de points, seuils de sévérité, moyenne
+  globale) est une **méthodologie propre au projet** — ni l'ANSSI ni l'OWASP ne définissent de
+  score sur 100. Elle applique un principe classique de méthodologie d'audit (esprit ISO 19011 /
+  audits PASSI) : *un constat doit reposer sur des preuves*. Un critère que le scanner n'a pas
+  pu observer est marqué « non évalué » et **exclu du barème** (ex. STARTTLS quand le port 25
+  est filtré, emails compromis sans clé HIBP) — il n'est ni validé ni pénalisé, et une
+  recommandation invite à le vérifier manuellement.
+
+**Point important à souligner** : les recommandations sont volontairement rédigées en
+**langage non technique**, orientées TPE/PME (« connectez-vous à l'interface OVH/Gandi… »,
+« demandez à votre prestataire informatique… »). C'est le cœur de la valeur du produit :
+traduire un audit technique en actions compréhensibles par un gérant de PME.
+
+En cas d'échec total d'un module (exception), il retourne quand même un `ModuleResult` avec
+`score=0` et l'erreur dans `details` — **un module qui plante ne fait jamais planter le scan**.
+
+---
+
+## 4. Les 7 modules d'analyse en détail
+
+### Module 1 — DNS Security (`dns_analyzer.py`)
+Utilise la librairie `checkdmarc` pour auditer la configuration DNS liée à l'email et à
+l'intégrité du domaine. Barème sur 100 :
+
+| Vérification | Points | Ce que ça protège |
+|---|---|---|
+| **SPF** valide | 25 | Empêche l'envoi d'emails usurpant le domaine |
+| **DMARC** valide | 30 | Politique anti-usurpation (détection + blocage du phishing) |
+| **DNSSEC** activé | 20 | Empêche l'empoisonnement DNS (redirection vers un faux site) |
+| **MX** présents | 25 | Le domaine peut recevoir des emails |
+
+Subtilités (plusieurs correctifs intéressants à raconter, voir aussi §15) :
+- Si DMARC est en `p=quarantine`, le module le signale et recommande `p=reject` (protection maximale).
+- L'appel `checkdmarc` est encapsulé dans un `ThreadPoolExecutor` avec **timeout de 35 s** et
+  l'option `skip_tls=True` — sans elle, checkdmarc utilise des signaux Unix pour ses timeouts
+  STARTTLS, ce qui plante dans un thread (et STARTTLS est déjà testé par le module Email).
+- Si checkdmarc timeout malgré tout, un **fallback maison en dnspython** vérifie quand même
+  SPF, DMARC, MX et DNSSEC (requête DNSKEY directe).
+- **Contre-vérification DNSSEC** : le test DNSSEC de checkdmarc produit parfois des faux
+  négatifs (timeout interne). Avant de retirer les 20 points, le module interroge lui-même les
+  enregistrements **DNSKEY** du domaine — s'ils existent, DNSSEC est bien actif. Si la requête
+  DNSKEY elle-même échoue, le critère est marqué « non évalué » et exclu du barème (score
+  recalculé sur les 80 points vérifiables).
+
+### Module 2 — SSL/TLS Security (`ssl_analyzer.py`)
+Ouvre une vraie connexion TLS sur le port 443 avec le module `ssl` de Python et récupère le
+certificat via `getpeercert()`. Barème :
+
+| Vérification | Points |
+|---|---|
+| Certificat valide > 30 jours | 40 (20 si expire sous 30 j, 0 si expiré) |
+| Version TLS 1.2 ou 1.3 | 30 |
+| Header **HSTS** présent | 30 |
+
+**Diagnostic précis des certificats invalides** (point technique fort) : Python valide le
+certificat *pendant* le handshake TLS — un certificat expiré fait donc échouer la connexion
+avant même qu'on puisse le lire. Le module attrape spécifiquement `ssl.SSLCertVerificationError`,
+analyse la raison (`certificate has expired`, `self-signed certificate`…), puis **rouvre une
+connexion sans validation** pour lire le certificat rejeté (parsing DER via la lib
+`cryptography`) et afficher la vraie date : « EXPIRÉ depuis N jours ». Testable en live sur
+`expired.badssl.com` et `self-signed.badssl.com`. Score 0 / CRITICAL dans les deux cas, mais
+avec un diagnostic exact au lieu d'une erreur générique.
+
+Si le header HSTS n'a pas pu être lu (site injoignable en HTTPS depuis le scanner), les
+30 points sont **exclus du barème** : score recalculé sur les 70 points vérifiables.
+La recommandation HSTS est laissée au module Security Headers pour éviter les doublons ;
+un message positif s'affiche quand tout est bon (TLS récent + certificat valide + HSTS actif).
+
+### Module 3 — Security Headers (`security_headers_analyzer.py`)
+Fait un `GET` sur le site et inspecte les en-têtes HTTP de réponse (référentiels OWASP/ANSSI).
+**Stratégie de fallback en 3 tentatives** : HTTPS → HTTPS sans vérification de certificat →
+HTTP. Ça permet d'auditer les headers même d'un site au certificat cassé. Barème :
+
+| Header | Points | Attaque bloquée |
+|---|---|---|
+| `Content-Security-Policy` | 25 | XSS / injection de code |
+| `Strict-Transport-Security` (HSTS) | 25 | Downgrade HTTP / interception |
+| `X-Frame-Options` | 20 | Clickjacking (site intégré dans une iframe piégée) |
+| `X-Content-Type-Options: nosniff` | 15 | MIME-sniffing (exécution de fichiers malveillants) |
+| `Referrer-Policy` | 15 | Fuite d'URLs internes vers des sites tiers |
+
+### Module 4 — Email Security (`email_analyzer.py`)
+Complète le module DNS avec des tests **actifs mais légaux** sur la messagerie :
+
+| Vérification | Points |
+|---|---|
+| Enregistrements MX présents | 25 |
+| Redondance MX (≥ 2 serveurs) | 20 |
+| **STARTTLS** supporté sur le serveur SMTP | 30 |
+| Bannière SMTP discrète (pas de version/OS exposé) | 25 |
+
+Subtilités intéressantes à mentionner :
+- Un seul serveur MX chez **Microsoft 365 / Google Workspace** compte quand même les 20 points
+  de redondance (redondance interne chez ces fournisseurs).
+- **Raccourci providers cloud** : si les MX pointent vers Microsoft 365 ou Google Workspace,
+  les 55 points STARTTLS/bannière sont accordés directement — ces providers garantissent
+  STARTTLS et n'exposent pas de bannière verbeuse, inutile (et souvent impossible) de tester.
+- Pour les autres serveurs : **une seule connexion SMTP** sert à la fois pour la bannière
+  (`getwelcome()`) et le test STARTTLS (`has_extn`), en essayant le **port 25 puis le 587**
+  en secours (le 587 est le port de soumission, souvent ouvert quand le 25 est filtré).
+- Si les **deux ports sont filtrés** (très fréquent : pare-feux, et port 25 bloqué en sortie
+  par Oracle Cloud sur le VPS), les 55 points STARTTLS/bannière sont **exclus du barème** :
+  le score est calculé sur les 45 points vérifiables (MX + redondance) puis remis à l'échelle
+  sur 100. Principe : *on ne pénalise pas le domaine pour une limite du scanner* —
+  la recommandation précise que ces critères n'ont pas pu être évalués.
+- Bannière « verbeuse » = contient `version`, `ubuntu`, `debian`, `centos` ou `postfix` →
+  information utile à un attaquant pour cibler des CVE connues.
+
+### Module 5 — Subdomain Takeover (`subdomain_takeover_analyzer.py`)
+Détecte les sous-domaines pointant (via CNAME) vers des services cloud **abandonnés**, qu'un
+attaquant pourrait revendiquer pour servir du contenu en votre nom. Fonctionnement :
+
+1. Énumération de **34 sous-domaines courants** (`www`, `mail`, `api`, `dev`, `staging`, `vpn`…).
+2. Pour chacun : résolution du **CNAME**. Pas de CNAME → pas de risque, on passe.
+3. Le CNAME est comparé à un dictionnaire de **14 signatures de services** vulnérables
+   (GitHub Pages, Heroku, Shopify, Azure, S3, Fastly, Zendesk… — source : projet
+   [can-i-take-over-xyz](https://github.com/EdOverflow/can-i-take-over-xyz)).
+4. Si le CNAME matche, on fait un GET HTTP et on cherche la **signature d'erreur du service**
+   dans le corps de la page (ex. GitHub : *"There isn't a GitHub Pages site here"*) →
+   si présente, la ressource est **orpheline = vulnérable**.
+
+Scoring inversé : on **part de 100** et on déduit — **−40** par sous-domaine réellement
+vulnérable (sévérité CRITICAL), **−10** par CNAME tiers « à surveiller » (HIGH).
+L'analyse complète est bornée par un **timeout global de 45 s** (ThreadPoolExecutor) :
+34 résolutions DNS + d'éventuels GET HTTP peuvent traîner, le scan ne doit jamais geler.
+
+### Module 6 — Domain Expiration (`domain_expiration.py`)
+Interroge le **WHOIS** (`python-whois`) pour la date d'expiration du nom de domaine. Un domaine
+expiré = site et emails morts, et risque de rachat par un tiers. Barème par paliers :
+
+| Jours restants | Score | Sévérité |
+|---|---|---|
+| expiré | 0 | CRITICAL |
+| < 7 j | 0 | CRITICAL |
+| < 30 j | 30 | HIGH |
+| < 90 j | 60 | MEDIUM |
+| < 180 j | 85 | LOW |
+| ≥ 180 j | 100 | LOW |
+
+Difficultés techniques gérées (bon exemple de robustesse à citer) :
+- `python-whois` retourne la date sous des formes variables selon le TLD : `datetime`, `str`,
+  `list`, avec ou sans timezone → fonction `_parse_expiration_date()` qui normalise tout en
+  datetime UTC-aware.
+- Timeout de 15 s via `ThreadPoolExecutor` (les serveurs WHOIS sont parfois très lents) ;
+  si timeout ou date indisponible → score neutre de 50 avec recommandation de vérifier
+  manuellement.
+
+### Module 7 — OSINT Breaches (`osint_breaches.py`)
+Croise **trois sources de renseignement en sources ouvertes** :
+
+1. **HIBP `/breaches` (gratuit, sans clé)** : le domaine est-il lui-même **source** d'une fuite
+   de données connue ? (comparaison avec la base publique Have I Been Pwned, ~1000 fuites ;
+   gère les TLD composés type `.co.uk`).
+2. **URLhaus (abuse.ch, gratuit)** : le domaine héberge-t-il des **URLs de distribution de
+   malware** ? Vérifie aussi les blacklists Spamhaus DBL et SURBL.
+3. **HIBP `/breacheddomain` (clé API payante, optionnelle)** : combien d'**adresses email
+   @domaine** apparaissent dans des fuites ? (mots de passe d'employés compromis).
+
+Le score est une matrice de gravité : malware + source de fuite = 0 (CRITICAL) ; malware seul
+ou fuites multiples = 15 ; source d'une fuite = 35 ; emails compromis gradués (≤5 → 60,
+≤20 → 30, >20 → 0) ; rien trouvé = 100. Si la clé API n'est pas configurée, la partie « emails »
+est marquée « non vérifié » et **exclue du score** (même principe que le module Email : on ne
+pénalise pas ce que le scanner n'a pas pu vérifier) — les vérifications gratuites restantes
+suffisent alors pour un 100.
+
+### Bonus — Détection de plateforme (`platform_detector.py`)
+Exécutée **avant** les modules, sans score propre : GET sur la page d'accueil et recherche de
+signatures dans le HTML (`shopify`, `wix`, `wp-content` → WordPress). Enrichit le rapport
+(le contexte « site Shopify » change les recommandations pertinentes).
+
+---
+
+## 5. Persistance : la base de données
+
+SQLite via SQLAlchemy, 2 tables (`db_models.py`) :
+
+```
+scans                              modules
+─────                              ───────
+scan_id (PK, UUID)          1──N   id (PK, autoincrement)
+domain (indexé)                    scan_id (FK → scans, cascade delete)
+platform                           module_name
+timestamp                          status / severity / score
+overall_score                      details (JSON)
+summary                            recommendations (JSON)
+critical/high/medium/low_issues
+```
+
+- Les tables sont créées au démarrage (`Base.metadata.create_all` dans le `lifespan` FastAPI).
+- Les colonnes `details` et `recommendations` sont en **JSON** : chaque module a des détails de
+  forme différente, le JSON évite un schéma rigide.
+- Deux convertisseurs font le pont entre Pydantic (API) et SQLAlchemy (DB) :
+  `_result_to_db()` et `_db_to_result()` dans `routes.py`.
+- Grâce à la persistance, le **PDF et le chat restent disponibles après le scan** via le
+  `scan_id`, même après rechargement de la page.
+
+---
+
+## 6. Le rapport PDF (`pdf_report.py` + `templates/report.html.j2`)
+
+Pipeline : **données du scan → template Jinja2 (HTML/CSS) → WeasyPrint → bytes PDF**.
+
+- Le template Jinja2 reçoit les modules **triés par sévérité** (critique d'abord) et la liste
+  agrégée de toutes les recommandations, également priorisée.
+- Des filtres Jinja2 personnalisés gèrent la présentation : couleur selon le score
+  (`#DC2626` rouge < 40 … `#16A34A` vert ≥ 85), labels français (CRITIQUE/ÉLEVÉ/MOYEN/BON/
+  EXCELLENT), formatage des valeurs (listes, dicts, booléens → « Oui/Non »), dates en français.
+- WeasyPrint transforme le HTML en PDF (moteur de rendu CSS complet, gère `@page` pour les
+  fonds de page — un bug de PDF « tout noir » a d'ailleurs été corrigé à ce niveau).
+- Le PDF est servi en streaming : `GET /api/v1/scan/{scan_id}/pdf` →
+  `Content-Disposition: attachment; filename="rapport-eon-<domaine>-<date>.pdf"`.
+- Côté Docker, WeasyPrint nécessite des libs système (Pango, HarfBuzz, Fontconfig) installées
+  dans le `Dockerfile`.
+
+**Pourquoi ce choix ?** Écrire le rapport en HTML/CSS est beaucoup plus productif que de
+dessiner un PDF programmatiquement (ReportLab) : mise en page déclarative, itération rapide.
+
+---
+
+## 7. L'assistant IA (`api/chat.py`)
+
+Un chatbot contextualisé sur **les résultats du scan en cours** :
+
+1. Le frontend appelle `POST /api/v1/chat/{scan_id}` avec le message + l'historique de la
+   conversation (l'historique est géré côté client, le serveur est stateless).
+2. Le backend recharge le scan depuis la base et construit un **system prompt** qui injecte :
+   domaine, score global, compteurs d'issues, et la liste des modules avec scores et
+   recommandations.
+3. Appel de l'**API Anthropic** (modèle `claude-haiku-4-5` — petit modèle : rapide et peu
+   coûteux, suffisant pour de l'explication guidée) en **streaming**.
+4. Les tokens sont relayés au navigateur en SSE au fil de l'eau → effet « machine à écrire ».
+
+Garde-fous dans le system prompt : répondre uniquement en français, prioriser les actions
+critiques, et **refuser les sujets hors cybersécurité du domaine scanné** (anti-détournement
+du chatbot). Si `ANTHROPIC_API_KEY` n'est pas configurée → HTTP 503 propre.
+
+---
+
+## 8. Le frontend (`frontend/app.js`)
+
+SPA **sans framework** (~580 lignes de JS vanilla) — choix assumé : pas de build, pas de
+dépendances, déploiement = `git pull` (nginx sert les fichiers statiques tels quels).
+
+- **Architecture** : un objet d'état global `S` (page courante, résultat, messages du chat…) +
+  une fonction `render()` qui reconstruit le HTML de la page à chaque changement d'état —
+  le même principe qu'un framework réactif, en version minimale.
+- **3 pages** : `scan` (formulaire) → `loading` (barre de progression alimentée par le SSE,
+  liste des 7 modules avec check ✓ au fur et à mesure) → `results`.
+- **Page résultats** : cartes de stats (score global coloré, nb de modules critiques/élevés),
+  liste des modules **dépliables** (détails clé/valeur + recommandations), colonne « Actions
+  prioritaires » = toutes les recommandations triées par sévérité, widget de chat flottant.
+- **Lecture du SSE** : `fetch` + `response.body.getReader()` + `TextDecoder`, parsing des
+  lignes `data: {...}` (pas d'`EventSource` car il faut un POST).
+- **Sécurité XSS** : toute donnée dynamique passe par un helper d'échappement `h()` avant
+  insertion dans le HTML.
+- **Health check** : ping de `/health` toutes les 30 s → pastille « En ligne / Hors ligne ».
+- Téléchargement du PDF via `blob` + lien temporaire (`URL.createObjectURL`).
+
+---
+
+## 9. Backend : points d'architecture à valoriser
+
+- **FastAPI + Pydantic** : validation automatique des entrées, documentation OpenAPI générée
+  (`/api/docs` — Swagger UI, pratique pour la démo).
+- **Async + threadpool** : les analyzers utilisent des librairies synchrones (requests,
+  dnspython, smtplib) ; `run_in_threadpool` les exécute hors de l'event loop → le serveur
+  reste réactif pendant un scan (~30-60 s).
+- **CORS** configuré explicitement (origines localhost + IP du VPS), `allow_credentials=False`
+  pour éviter un bug de preflight OPTIONS.
+- **Config centralisée** (`config.py`, pydantic-settings) : clés API et paramètres dans un
+  `.env` jamais commité (`.env.example` fourni).
+- **Timeouts partout** : chaque appel réseau a un timeout (10-20 s), les librairies bloquantes
+  (checkdmarc, whois) sont enveloppées dans des `ThreadPoolExecutor` avec timeout — un domaine
+  « pathologique » ne peut pas geler le scan.
+- **Résilience** : chaque module attrape ses exceptions et retourne un résultat dégradé au lieu
+  de faire échouer le scan complet.
+
+### Endpoints de l'API
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| POST | `/api/v1/scan` | Scan complet en un bloc (JSON) |
+| POST | `/api/v1/scan/stream` | Scan avec progression SSE (utilisé par le front) |
+| GET | `/api/v1/scan/{scan_id}` | Relire un scan depuis la base |
+| GET | `/api/v1/scan/{scan_id}/pdf` | Générer et télécharger le rapport PDF |
+| DELETE | `/api/v1/scan/{scan_id}` | Supprimer un scan (+ ses modules, cascade) |
+| POST | `/api/v1/chat/{scan_id}` | Chatbot IA (streaming SSE) |
+| GET | `/api/v1/platforms` | Liste des plateformes détectables |
+| GET | `/health` | Health check |
+
+---
+
+## 10. Tests
+
+- **Tests unitaires** (un fichier par module dans `backend/tests/`) : les appels réseau sont
+  **mockés** → rapides, déterministes, exécutables hors ligne. On teste la logique de scoring
+  (ex. « SPF manquant → 25 points en moins + recommandation présente »).
+- **Tests d'intégration** (`test_integration.py`) : vrais appels réseau vers des domaines
+  stables (google.com, cloudflare.com) pour valider le comportement de bout en bout.
+- Lancement : `pytest tests/ -v` dans `backend/`.
+
+---
+
+## 11. Déploiement
+
+- **VPS Oracle Cloud** (Ubuntu).
+- **Backend** : conteneur Docker (`python:3.11-slim` + libs Pango pour WeasyPrint), lancé via
+  `docker compose`, exposé sur le port 8000. Mise à jour :
+  `docker compose build eon-backend && docker compose up -d eon-backend`.
+- **Frontend** : fichiers statiques servis directement par **nginx**. Mise à jour : `git pull`.
+- Le frontend construit l'URL de l'API dynamiquement
+  (`http://${window.location.hostname}:8000`) → le même code marche en local et en prod.
+
+---
+
+## 12. Questions probables du jury (et réponses)
+
+**« Le scan est-il légal ? »**
+Oui : uniquement des requêtes qu'un navigateur ou un serveur mail ferait normalement —
+résolution DNS, connexion TLS, GET HTTP, WHOIS public, bases OSINT publiques (HIBP, URLhaus).
+Aucun scan de ports agressif, aucune exploitation, aucun brute-force.
+
+**« Pourquoi séquentiel et pas parallèle ? »**
+Choix pour la lisibilité de la progression (SSE module par module) et pour rester courtois
+envers la cible (pas de rafale de requêtes). La parallélisation (asyncio.gather) est une
+évolution identifiée.
+
+**« Pourquoi SQLite ? »**
+Volume faible (un enregistrement par scan), pas de concurrence forte, zéro administration.
+Grâce à SQLAlchemy, migrer vers PostgreSQL = changer `DATABASE_URL` (psycopg2 est déjà dans
+les requirements).
+
+**« Comment sont calculés les scores ? »**
+Grille de points par vérification, définie par module (voir §4), moyenne simple pour le score
+global. Les seuils de sévérité sont harmonisés entre modules (§3). Limite assumée : la moyenne
+simple ne pondère pas les modules entre eux — une pondération par criticité serait une évolution.
+
+**« Le scoring vient-il de l'ANSSI ? »**
+Non, et il faut être précis là-dessus : l'ANSSI et l'OWASP fournissent **les points de
+contrôle** (quoi vérifier et pourquoi), pas de système de notation. Le score sur 100 est
+**notre méthodologie**, avec un principe emprunté aux méthodes d'audit classiques : on ne note
+que ce qu'on a pu vérifier — un critère inobservable (port 25 filtré, clé API absente) est
+« non évalué » et sort du barème au lieu d'être noté arbitrairement.
+
+**« Que se passe-t-il si une API externe est en panne ? »**
+Timeouts + try/except par module : le module concerné rend un score dégradé avec un message
+explicite, le reste du scan continue.
+
+**« Pourquoi pas de framework frontend ? »**
+Périmètre réduit (3 vues), pas de build à maintenir, déploiement trivial. Le pattern
+état → render() reproduit l'essentiel d'un framework réactif.
+
+### Limites connues / pistes d'évolution
+- Parallélisation des modules pour réduire la durée du scan.
+- Historique des scans visible dans l'UI (les modèles `HistoryItem`/`HistoryResponse` existent
+  déjà côté Pydantic, l'endpoint reste à brancher).
+- HTTPS sur le frontend en production (actuellement HTTP sur l'IP du VPS).
+- DKIM non vérifié (nécessite de connaître le sélecteur du domaine, voir §14).
+- Le paramètre `include_subdomains` est transmis mais pas encore exploité par les modules.
+- Pondération des modules dans le score global.
+
+---
+
+## 13. Plan de démo suggéré (5 minutes)
+
+1. Page d'accueil → lancer un scan sur un domaine réel (préparer un domaine avec des
+   résultats intéressants, ni parfait ni catastrophique).
+2. Pendant le chargement : expliquer le SSE et les 7 modules qui défilent.
+3. Page résultats : lire le score, déplier un module « warning », montrer le langage
+   accessible des recommandations.
+4. Poser une question au chatbot (« Par quoi je commence ? »).
+5. Télécharger le PDF et le montrer.
+6. Bonus : ouvrir `/api/docs` pour montrer l'API documentée automatiquement.
+
+---
+
+## 14. Cours accéléré — les notions cyber à maîtriser pour le jury
+
+Pour chaque notion : comment ça marche, pourquoi on la vérifie, et la question piège associée.
+
+### 14.1 DNS — la base de tout
+
+Le DNS traduit un nom (`exemple.com`) en adresses. Les types d'enregistrements que l'outil
+manipule :
+
+| Type | Contenu | Utilisé par |
+|---|---|---|
+| **A / AAAA** | Adresse IP du serveur | Validation du domaine avant scan |
+| **MX** | Serveurs de messagerie entrants, avec priorité | Modules DNS et Email |
+| **TXT** | Texte libre — c'est là que vivent SPF et DMARC | Module DNS |
+| **CNAME** | Alias vers un autre nom (ex. `blog.x.com → x.github.io`) | Module Takeover |
+| **DNSKEY / RRSIG / DS** | Clés publiques et signatures DNSSEC | Module DNS |
+
+### 14.2 SPF (Sender Policy Framework)
+
+- **Mécanisme** : un enregistrement TXT sur le domaine (`v=spf1 include:_spf.google.com -all`)
+  qui **liste les serveurs autorisés à envoyer** des emails au nom du domaine. Le serveur
+  *destinataire* compare l'IP de l'expéditeur à cette liste.
+- **Ce que ça bloque** : un spammeur qui envoie depuis sa propre machine des mails
+  `De: patron@votre-pme.fr`.
+- **Limite (question piège)** : SPF vérifie l'expéditeur *technique* (enveloppe SMTP), pas le
+  `De:` affiché dans le client mail. Il casse aussi sur les transferts de mails. C'est pour ça
+  que DMARC existe.
+- Le `-all` (rejet) est plus strict que `~all` (softfail).
+
+### 14.3 DKIM (DomainKeys Identified Mail) — et pourquoi on ne le teste PAS
+
+- **Mécanisme** : le serveur émetteur **signe cryptographiquement** chaque email ; la clé
+  publique est publiée en DNS sous `selecteur._domainkey.domaine.com`.
+- **Question piège quasi certaine : « pourquoi votre outil ne vérifie pas DKIM ? »**
+  Réponse : la clé est publiée sous un **sélecteur choisi librement** par l'expéditeur
+  (`google._domainkey`, `s1._domainkey`, `k2025._domainkey`…). Sans recevoir un vrai email du
+  domaine (qui contient le nom du sélecteur dans son en-tête), on ne peut pas deviner où
+  chercher. Un scan passif ne peut donc pas auditer DKIM de façon fiable — on pourrait au
+  mieux tester une liste de sélecteurs courants (piste d'évolution).
+
+### 14.4 DMARC (Domain-based Message Authentication, Reporting & Conformance)
+
+- **Mécanisme** : TXT sur `_dmarc.domaine.com`. DMARC s'appuie sur SPF **et** DKIM et ajoute
+  la notion d'**alignement** : le domaine vérifié par SPF/DKIM doit correspondre au domaine
+  du `De:` visible. C'est lui qui protège vraiment contre l'usurpation d'affichage.
+- **La politique `p=`** (ce que le destinataire doit faire d'un mail non conforme) :
+  `none` (surveiller seulement) < `quarantine` (spam) < `reject` (refus pur). L'outil
+  recommande `reject`.
+- `rua=mailto:...` : adresse où les destinataires envoient des **rapports agrégés** — c'est de
+  la télémétrie gratuite sur qui usurpe votre domaine.
+- **Hiérarchie à retenir** : SPF et DKIM sont les mécanismes de preuve, DMARC est la politique
+  qui les exploite. Sans DMARC, SPF seul ne bloque pas l'usurpation du `De:` affiché.
+
+### 14.5 DNSSEC
+
+- **Problème résolu** : le DNS classique n'est pas authentifié — un attaquant peut
+  **empoisonner le cache** d'un résolveur et rediriger `votrebanque.fr` vers son serveur.
+- **Mécanisme** : chaque zone signe ses enregistrements (RRSIG) avec une clé (DNSKEY), et la
+  zone parente publie l'empreinte de cette clé (DS) — une **chaîne de confiance** remonte
+  jusqu'à la racine du DNS. Le résolveur peut ainsi vérifier que la réponse n'a pas été altérée.
+- **Détection par l'outil** : présence d'enregistrements DNSKEY (+ validation checkdmarc).
+- **Question piège : « google.com n'a pas DNSSEC, votre outil le pénalise ? »** Oui, 80/100 en
+  DNS — et c'est factuellement correct : Google a fait le choix assumé de ne pas signer
+  google.com (ils misent sur d'autres protections). L'outil rapporte des faits, le contexte
+  est expliqué dans la recommandation. Ça montre que le score n'est pas « magique ».
+
+### 14.6 TLS et certificats
+
+- **Le handshake TLS** : le client et le serveur négocient version + chiffrement, le serveur
+  présente son **certificat** (identité + clé publique, signé par une autorité de
+  certification), le client vérifie la chaîne de confiance, la validité temporelle et la
+  correspondance du nom de domaine. Ensuite seulement le trafic est chiffré.
+- **Versions** : TLS 1.2 (2008) et 1.3 (2018) sont sûres ; TLS 1.0/1.1 et SSLv3 sont
+  dépréciées (attaques POODLE, BEAST…). « SSL » est l'ancien nom — dire TLS.
+- **Certificat expiré** = les navigateurs affichent un avertissement plein écran → perte de
+  trafic immédiate pour une PME. Let's Encrypt fournit des certificats gratuits renouvelés
+  automatiquement (90 jours), d'où la recommandation.
+- **Auto-signé / autorité inconnue / mauvais domaine** : trois raisons de rejet distinctes que
+  l'outil sait différencier (via `verify_message` du handshake).
+
+### 14.7 HSTS (HTTP Strict Transport Security)
+
+- **Header** : `Strict-Transport-Security: max-age=31536000; includeSubDomains`.
+- **Attaque bloquée — SSL stripping** : sans HSTS, un utilisateur qui tape `site.fr` part en
+  HTTP ; un attaquant en position d'interception (Wi-Fi public) peut maintenir la connexion en
+  HTTP et lire/modifier tout le trafic. Avec HSTS, après la première visite le navigateur
+  **refuse** de parler HTTP au site pendant `max-age` secondes.
+- Bon exemple réel : la chaîne de redirection `esgi.fr → http://www.esgi.fr → https://...`
+  passe par un saut HTTP en clair — exactement ce que HSTS éviterait.
+
+### 14.8 Les autres en-têtes HTTP de sécurité
+
+| Header | Attaque bloquée | En une phrase |
+|---|---|---|
+| **Content-Security-Policy** | XSS | Liste blanche des sources de scripts/styles/images ; un script injecté par un attaquant ne s'exécute pas s'il ne vient pas d'une source autorisée |
+| **X-Frame-Options** | Clickjacking | Interdit d'afficher le site dans une iframe — sinon un site piège superpose des boutons invisibles au-dessus du vôtre |
+| **X-Content-Type-Options: nosniff** | MIME sniffing | Empêche le navigateur de « deviner » le type d'un fichier et d'exécuter comme script un fichier déguisé |
+| **Referrer-Policy** | Fuite d'infos | Contrôle ce que le header `Referer` révèle aux sites tiers (URLs internes, tokens dans l'URL…) |
+
+### 14.9 STARTTLS et la messagerie
+
+- SMTP date d'une époque sans chiffrement : par défaut, un mail transite **en clair** entre
+  serveurs. **STARTTLS** permet de « surclasser » la connexion en TLS sur le même port.
+- Ports : **25** = relais entre serveurs, **587** = soumission (client → serveur). Le 25 est
+  très souvent bloqué en sortie par les hébergeurs cloud (anti-spam) — d'où notre fallback 587
+  et l'exclusion du barème si les deux sont inaccessibles.
+- **Bannière SMTP** : la ligne d'accueil du serveur (`220 mail.x.fr ESMTP Postfix (Ubuntu)`).
+  Si elle révèle logiciel/version/OS, un attaquant sait immédiatement quelles CVE tester.
+
+### 14.10 Subdomain takeover
+
+- **Scénario complet** : une PME crée `promo.pme.fr` en CNAME vers `pme.github.io` pour un
+  événement. L'événement passe, on supprime la page GitHub **mais pas le CNAME**. N'importe
+  qui peut alors créer un GitHub Pages nommé `pme.github.io` → il contrôle ce qui s'affiche
+  sur `promo.pme.fr`, avec le nom de la PME et même la possibilité d'obtenir un certificat
+  TLS valide. Phishing parfait.
+- **Détection en 2 temps** (important) : le CNAME vers un service cloud ne suffit pas — il
+  faut vérifier que la ressource est **orpheline**, via la page d'erreur caractéristique du
+  service (« There isn't a GitHub Pages site here »). CNAME seul = « à surveiller » (−10),
+  CNAME + page d'erreur = vulnérable (−40).
+
+### 14.11 WHOIS et expiration de domaine
+
+- Base publique des enregistrements de domaines (registrar, dates). Un domaine expiré peut
+  être racheté par n'importe qui — qui récupère alors le trafic **et les emails** de la PME.
+- Cas réels célèbres d'entreprises ayant perdu leur domaine par simple oubli de renouvellement.
+- Limite : certains TLD (dont parfois le `.fr`) limitent les données WHOIS (RGPD) → si la date
+  est illisible, score neutre 50 + recommandation de vérifier chez son registrar.
+
+### 14.12 OSINT (Open Source Intelligence)
+
+- Renseignement en **sources ouvertes** : on n'attaque rien, on consulte des bases publiques.
+- **Have I Been Pwned** : base de ~1000 fuites de données publiques. Deux usages : le domaine
+  comme *source* d'une fuite (gratuit), et les emails du domaine *présents dans* des fuites
+  (API payante — mots de passe d'employés dans la nature = risque de credential stuffing).
+- **URLhaus (abuse.ch)** : base collaborative d'URLs distribuant des malwares. Un site de PME
+  compromis sert souvent de point de distribution sans que le gérant le sache.
+- Pourquoi c'est pertinent pour une TPE : ce sont les mêmes sources que consultent les
+  attaquants pour préparer une campagne.
+
+### 14.13 Vocabulaire divers susceptible de tomber
+
+- **Scan passif vs actif** : passif = requêtes légitimes qu'un client normal ferait (notre
+  cas) ; actif = sonder des failles (scan de ports agressif, fuzzing) — interdit sans mandat.
+- **SSE vs WebSocket** : SSE = flux unidirectionnel serveur→client sur HTTP simple ;
+  WebSocket = bidirectionnel, protocole dédié. Notre besoin est unidirectionnel → SSE.
+- **CVE** : identifiant public d'une vulnérabilité connue (ex. CVE-2024-XXXX).
+- **Credential stuffing** : rejouer des couples email/mot de passe issus de fuites sur
+  d'autres services.
+- **Typosquatting** : enregistrer un domaine à une faute de frappe du vrai
+  (`cloudfare.com` vs `cloudflare.com` — on l'a vécu en test, voir §15).
+
+---
+
+## 15. Anecdotes de développement (à raconter en soutenance si on creuse la technique)
+
+Ces « bugs de guerre » montrent une vraie démarche d'ingénierie — les garder en réserve pour
+les questions techniques :
+
+1. **checkdmarc plantait dans les threads.** Le module DNS retournait parfois 0 avec une
+   erreur obscure « signal only works in main thread ». Cause : checkdmarc utilise des
+   signaux Unix pour ses timeouts STARTTLS, or les signaux ne marchent que dans le thread
+   principal — et nos analyzers tournent dans un threadpool. Correctif : `skip_tls=True`
+   (le STARTTLS est testé ailleurs). Leçon : le comportement dépendait de *comment* le serveur
+   démarrait, d'où des bugs « ça marche sur le VPS mais pas en local ».
+2. **Faux négatifs DNSSEC.** cloudflare.com sortait parfois « DNSSEC désactivé » alors que le
+   domaine est signé — le test interne de checkdmarc échoue par intermittence. Correctif :
+   contre-vérification directe des enregistrements DNSKEY avant de retirer des points.
+   Leçon : ne jamais pénaliser sur un échec de *mesure*.
+3. **cloudfare.com ≠ cloudflare.com.** En testant, on scannait un typosquat sans s'en rendre
+   compte — et l'outil avait *raison* : ce domaine (possédé par Cloudflare pour rattraper la
+   faute de frappe) n'a réellement pas DNSSEC. Une lettre de différence = deux postures de
+   sécurité. Excellente illustration du typosquatting.
+4. **Les certificats expirés étaient invisibles.** Python valide le certificat pendant le
+   handshake : un certificat expiré faisait planter la connexion avant qu'on puisse le lire,
+   et l'outil affichait « vérifier que le site utilise HTTPS » — faux diagnostic. Correctif :
+   attraper l'erreur de validation, se reconnecter sans validation et parser le certificat
+   rejeté pour afficher « EXPIRÉ depuis N jours ».
+5. **Le port 25 bloqué par Oracle Cloud.** Sur le VPS, impossible de tester STARTTLS : le
+   cloud bloque le port 25 en sortie (anti-spam). D'abord traité en « bénéfice du doute »
+   (+30 points gratuits), puis remplacé par l'exclusion du barème — plus honnête. Ajout du
+   fallback port 587 et du raccourci M365/Google pour réduire les cas invérifiables.
+6. **Un scan gelait tout le serveur.** L'endpoint `/scan` était déclaré `async` mais appelait
+   7 analyzers synchrones : l'event loop était bloqué ~1 minute, plus aucune requête ne
+   passait. Correctif : endpoint en `def` (FastAPI l'exécute alors dans un threadpool).
+7. **Le PDF sortait tout noir dans Firefox.** Un fond posé via la règle CSS `@page` dans le
+   template WeasyPrint rendait le PDF illisible dans certains lecteurs. Revert + fond géré
+   autrement.
+8. **esgi.fr à 0/100 en headers.** Vérifié à la main au `curl` : le site (WordPress derrière
+   nginx/Azure Gateway) n'envoie réellement aucun des 5 en-têtes de sécurité, et la
+   redirection passe même par un saut HTTP en clair. L'outil détecte un vrai problème,
+   démontrable en une commande devant le jury.
+
+---
+
+## 16. Plan de diapositives (12 slides, ~15 min + démo)
+
+> Règle générale : une idée par slide, peu de texte, les schémas de ce document sont
+> réutilisables. Les notes « à l'oral » ci-dessous sont le script.
+
+**Slide 1 — Titre.** Logo ÉON, sous-titre « Audit de sécurité automatisé pour TPE/PME »,
+noms, année, URL de la démo.
+*À l'oral : pitch en 30 s — « 43 % des cyberattaques visent les petites entreprises, qui
+n'ont ni RSSI ni budget audit. ÉON donne en une minute un diagnostic compréhensible. »*
+
+**Slide 2 — Le problème.** 3 constats : les TPE/PME sont ciblées ; un audit professionnel
+coûte cher ; les outils existants (SSL Labs, securityheaders.com) sont fragmentés et
+anglophones/techniques.
+*À l'oral : insister sur la cible — le gérant de PME, pas l'expert sécu.*
+
+**Slide 3 — La solution.** Capture d'écran de la page résultats. « Un domaine en entrée →
+7 analyses, un score sur 100, un rapport PDF, un assistant IA. » Souligner : 100 % passif
+et légal.
+
+**Slide 4 — Architecture.** Le schéma du §1 (frontend SPA ↔ FastAPI ↔ analyzers/SQLite/APIs
+externes). Une ligne sur la stack : Python/FastAPI, JS vanilla, SQLite, WeasyPrint, Claude.
+*À l'oral : justifier 2 choix max (SSE pour la progression temps réel, SQLite car volume
+faible) — garder le reste pour les questions.*
+
+**Slide 5 — Les 7 modules.** Tableau : module / ce qu'il vérifie / exemple d'attaque bloquée.
+Une ligne chacun, pas plus.
+*À l'oral : en choisir 2 à développer (recommandé : Email pour SPF/DMARC, Takeover pour le
+scénario d'attaque parlant).*
+
+**Slide 6 — Le scoring.** La grille de sévérité (§3) + le principe fort : « points de
+contrôle ANSSI/OWASP, notation maison » et « un critère invérifiable est exclu du barème,
+jamais noté arbitrairement ».
+*À l'oral : c'est LA slide méthodologie — le jury de soutenance adore les choix justifiés.*
+
+**Slide 7 — Zoom : la chaîne email.** Schéma SPF → DKIM → DMARC (qui prouve quoi, qui décide
+quoi). Mentionner pourquoi DKIM n'est pas testable passivement.
+*À l'oral : dérouler l'exemple « un fraudeur envoie un mail au nom de votre domaine ».*
+
+**Slide 8 — Zoom : subdomain takeover.** Schéma du scénario (CNAME orphelin → prise de
+contrôle) + la détection en 2 temps (signature CNAME puis page d'erreur).
+*À l'oral : c'est le module le plus « offensif-friendly », il impressionne.*
+
+**Slide 9 — DÉMO LIVE** (5 min, plan du §13). Prévoir un plan B : captures d'écran ou vidéo
+si le réseau de la salle est capricieux, et un scan pré-enregistré en base.
+
+**Slide 10 — Qualité & robustesse.** 38 tests (unitaires mockés + intégration réelle),
+timeouts partout, un module qui plante ne tue jamais le scan, exclusion de l'invérifiable.
+Citer 1 anecdote du §15 (suggestion : les faux négatifs DNSSEC ou le port 25).
+*À l'oral : montrer qu'on a affronté de vrais problèmes, pas suivi un tutoriel.*
+
+**Slide 11 — Limites & évolutions.** 2 colonnes : limites assumées (séquentiel, DKIM,
+moyenne non pondérée) / roadmap (parallélisation, historique UI, HTTPS front, sélecteurs
+DKIM courants).
+*À l'oral : annoncer soi-même les limites désamorce les questions pièges.*
+
+**Slide 12 — Conclusion + questions.** Récap en 3 points : produit fonctionnel déployé,
+méthodologie de scoring défendable, valeur = traduction technique → langage PME. URL démo +
+QR code éventuel.
+
+### Check-list avant la soutenance
+- [ ] Backend VPS à jour (`git pull` + rebuild Docker) et testé le matin même.
+- [ ] Un scan « intéressant » pré-enregistré en base (au cas où le réseau tombe).
+- [ ] Domaines de démo répétés : un bon (cloudflare.com), un moyen (esgi.fr — headers 0/100),
+      badssl.com pour le certificat expiré si on veut montrer le diagnostic SSL.
+- [ ] Attention à la faute de frappe cloud**fl**are.com pendant la démo 😉.
+- [ ] `/api/docs` ouvert dans un onglet.
+- [ ] Relire §12 (questions du jury) et §14 (cours) la veille.
