@@ -712,220 +712,215 @@ les questions techniques :
 
 ---
 
-## 16. Plan de diapositives — format soutenance 20 minutes
+## 16. Plan de diapositives — consignes officielles et déroulé
 
-### 16.1 Le cadre imposé (à respecter absolument)
+### 16.1 Les consignes données par l'école (à respecter à la lettre)
 
-**Déroulé d'une soutenance ESGI** : **20 min de présentation** + **10 min de questions/réponses**
-+ 5 min de délibération + 5 min de restitution. Jury composé d'enseignants **et de
-professionnels** (entreprises partenaires, intervenants, anciens élèves), avec un barème
-communiqué à l'avance — **le demander si vous ne l'avez pas**, c'est lui qui doit dicter le poids
-de chaque partie.
+| Consigne | Conséquence sur le diaporama |
+|---|---|
+| **20 minutes**, démonstration **comprise** | ~15 min de parole + ~5 min de démo |
+| **Minimum 15 diapos** | On vise **17** (voir 16.3) |
+| **Cahier de projet / architecture au début** | Diapos 4 à 7, avant tout le reste |
+| **Ne pas parler de gestion de projet** | ❌ Pas de diapo planning, Git, répartition des tâches, méthode agile. C'est une **soutenance de projet**, pas de management |
+| **Ne pas parler de code, ne pas le montrer** | ❌ Zéro capture d'écran de code, zéro nom de fonction ou de librairie à l'écran. On explique **la démarche**, pas l'implémentation |
+| **Ne pas meubler** | Chaque diapo porte une idée utile ; si on n'a rien à dire dessus, on la supprime |
+| **Démonstration préparée en amont** | Scénario répété, dans le temps imparti |
+| **Toujours une vidéo de secours** | À enregistrer **avant** le jour J |
+| **Faire une conclusion** | Diapo finale obligatoire |
+| **Numéroter les diapos** | Numéro visible sur chaque diapo |
+| **Se présenter** | Diapo « équipe » en début — qui on est, pas qui a fait quoi |
+| **Tenue professionnelle** | Pas de baskets, tenue correcte |
 
-**Ce que l'école attend explicitement dans la présentation :**
-1. **Présentation du projet** — objectifs, pré-requis, **équipe de réalisation**, **déroulé**
-2. **Démonstration commentée** d'extraits du projet
-3. **Retour d'expérience** — ce que l'exercice vous a apporté
+> ⚠️ **Deux diapos de mon plan précédent sautent** : celle sur le workflow Git / la répartition des
+> tâches (interdit : gestion de projet) et le détail technique du code dans les blocs « comment on
+> vérifie » (interdit : code). Le contenu technique reste **à l'oral et en réserve pour les
+> questions**, jamais à l'écran.
 
-> ⚠️ Les points 1 (équipe/déroulé) et 3 (retour d'expérience) **étaient absents** du plan
-> initial, alors qu'ils sont attendus. La démonstration aussi. Ils sont intégrés ci-dessous.
+### 16.2 « Pas de code » : comment parler technique sans parler code
 
-**Nombre de diapos :** la pratique courante est de **1 à 2 minutes par diapo**, soit
-**12 à 18 diapos pour 20 minutes** (la règle 10/20/30 de Kawasaki dit même 10 diapos pour 20 min).
-Avec la démo qui mange 4 à 5 minutes, il reste ~15 min de parole → **16 à 18 diapos maximum**.
+C'est la contrainte la plus piégeuse — un projet d'audit de sécurité **est** technique. La règle :
+on parle **du protocole, de la démarche et du résultat**, pas de l'implémentation.
 
-### 16.2 Pourquoi le plan « 4 diapos par analyzer » est intenable
+| ❌ À bannir (diapo et oral) | ✅ À dire à la place |
+|---|---|
+| « on utilise `checkdmarc` dans un `ThreadPoolExecutor` avec `skip_tls=True` » | « on interroge les enregistrements DNS du domaine, avec un garde-fou qui empêche une requête lente de bloquer le scan » |
+| « on attrape `ssl.SSLCertVerificationError` et on parse le DER » | « quand le certificat est rejeté, on rouvre une connexion pour lire quand même le certificat et dire précisément **pourquoi** il est refusé : expiré, auto-signé, mauvais domaine » |
+| « `smtplib` sur le port 25 puis 587 » | « on se connecte au serveur de messagerie comme le ferait un autre serveur mail, et on regarde s'il propose le chiffrement » |
+| Capture d'écran de code | Capture de **l'interface**, du **rapport PDF**, ou un **schéma** |
 
-7 modules × 4 diapos = **28 diapos**, plus le reste = **35 diapos**. Sur 20 minutes, cela laisse
-**34 secondes par diapo**, démo comprise — impossible à tenir, et le jury retiendra une bouillie.
+Les anecdotes de développement (§15) restent racontables **à l'oral** — mais en version
+fonctionnelle : « un domaine correctement configuré ressortait parfois comme non protégé, on a
+compris que la vérification échouait par intermittence, donc on la double par un second contrôle
+indépendant ». Aucun nom de librairie n'est nécessaire pour que ce soit impressionnant.
 
-**La grille en 4 temps reste excellente** — mais c'est une **grille de contenu**, pas un
-découpage en diapos. Elle tient **sur une seule diapo en 4 blocs**. Et surtout : **on ne détaille
-pas les 7 modules**. On en présente **une vue d'ensemble (1 diapo)** puis on **zoome sur 2 ou 3
-modules** seulement. Les 4 autres seront évoqués à l'oral et détaillés **en questions** — c'est
-exactement à ça que servent les 10 minutes de Q&R (et le §14 de ce document pour y répondre).
-
-> **Le réflexe à avoir :** ce qui n'entre pas dans les 20 min n'est pas perdu, il est **en
-> réserve pour les questions**. Un jury préfère un exposé clair suivi de réponses solides à un
-> défilé de 35 diapos.
-
-### 16.3 Le déroulé retenu — 17 diapos / 20 minutes
+### 16.3 Le déroulé — 17 diapos / 20 minutes
 
 | # | Diapo | Temps | Contenu |
 |---|---|---|---|
-| 1 | **Titre** | 0:30 | Logo ÉON, « Audit de sécurité automatisé pour TPE/PME », noms, année, URL de démo |
-| 2 | **Sommaire** | 0:20 | Les 5 parties (contexte / solution / technique / démo / bilan) |
-| 3 | **Le problème & la cible** | 1:30 | Les TPE-PME sont ciblées, sans RSSI ni budget d'audit, et ne savent pas quoi vérifier. **Objectifs du projet** (attendu par l'école) |
-| 4 | **Les concurrents** | 1:30 | SSL Labs, securityheaders.com, MXToolbox, Hardenize : chacun ne fait qu'**une** brique, en anglais, pour des experts |
-| 5 | **Notre alternative** | 1:30 | Un domaine → 7 analyses → 1 score → 1 rapport PDF → 1 assistant IA. **Capture de la page résultats.** 100 % passif et légal |
-| 6 | **Architecture & équipe** | 1:30 | Schéma du §1 + stack. **Équipe et déroulé du projet** (attendu par l'école) : qui a fait quoi, workflow Git |
-| 7 | **Méthodologie de scoring** ⭐ | 2:00 | Contrôles = 5 guides ANSSI + OWASP ; **notation = notre méthodologie** ; **l'invérifiable est exclu du barème**. Grille de sévérité |
-| 8 | **Vue d'ensemble des 7 modules** | 1:30 | Tableau : module / ce qu'il vérifie / attaque bloquée / source (ANSSI R-xx ou autre). Une ligne chacun |
-| 9 | **Zoom 1 — Email** (4 temps) | 1:30 | Problème / ce que ça résout / comment on vérifie / **R42, R44, R48+ (ANSSI-PA-066)** |
-| 10 | **Zoom 2 — Subdomain Takeover** (4 temps) | 1:30 | Le scénario d'attaque + détection en 2 temps. ⚠️ **Pas d'ANSSI ici** → can-i-take-over-xyz |
-| 11 | **Zoom 3 — Security Headers** (4 temps) | 1:00 | Les 5 en-têtes + **esgi.fr à 0/100, vérifiable au `curl`**. R2/R14/R18/R21 (ANSSI-PA-009) ; ⚠️ nosniff = OWASP |
-| 12–13 | **DÉMONSTRATION** ⭐ | 4:00 | Attendue par l'école. Plan au §13. **Plan B obligatoire** (vidéo/captures + scan déjà en base) |
-| 14 | **Qualité & robustesse** | 1:00 | 38 tests, timeouts partout, un module qui plante ne tue pas le scan. **1 anecdote du §15** |
-| 15 | **Retour d'expérience** ⭐ | 1:00 | **Attendu par l'école** — ce que le projet vous a appris (voir 16.5) |
-| 16 | **Voies d'amélioration** | 1:00 | Limites assumées / roadmap |
-| 17 | **Conclusion** | 0:40 | 3 messages + URL de démo |
+| 1 | **Titre** | 0:20 | Logo ÉON, « Audit de sécurité automatisé pour TPE/PME », noms, année, URL de démo |
+| 2 | **Qui sommes-nous** | 0:40 | Présentation de l'équipe (prénoms, filière). **Pas** « qui a fait quoi » (= gestion de projet) |
+| 3 | **Sommaire** | 0:20 | Les 5 parties : cadrage · solution · analyses · démo · bilan |
+| 4 | **Cahier de projet — le contexte** | 1:30 | Les TPE-PME sont ciblées, sans RSSI ni budget d'audit, et ne savent pas quoi vérifier |
+| 5 | **Cahier de projet — objectifs & périmètre** | 1:30 | Objectifs, cible utilisateur, ce qui est **dans** le périmètre / ce qui n'y est pas (100 % passif, aucune exploitation) |
+| 6 | **L'existant / les concurrents** | 1:30 | SSL Labs, securityheaders.com, MXToolbox, Hardenize : chacun ne couvre **qu'une** brique, en anglais, pour des experts |
+| 7 | **Architecture du projet** | 1:30 | Le schéma (§1) : interface → serveur d'analyse → 7 modules → base → rapport PDF → assistant IA. **Un schéma, pas du code** |
+| 8 | **Notre alternative** | 1:00 | Capture de la page résultats : un domaine → 7 analyses → 1 score → 1 rapport → 1 assistant |
+| 9 | **Méthodologie de scoring** ⭐ | 2:00 | Contrôles issus de 5 guides ANSSI + OWASP ; **notation = notre méthodologie** ; **un critère non vérifiable est exclu du barème** |
+| 10 | **Vue d'ensemble des 7 analyses** | 1:30 | Tableau : analyse / ce qu'elle vérifie / attaque bloquée / référentiel |
+| 11 | **Zoom 1 — Messagerie** (4 temps) | 1:30 | Usurpation d'identité, mails en clair. **R42, R44, R48+ (ANSSI-PA-066)** |
+| 12 | **Zoom 2 — Subdomain takeover** (4 temps) | 1:30 | Le scénario d'attaque. ⚠️ **Pas d'ANSSI** → can-i-take-over-xyz |
+| 13 | **Zoom 3 — En-têtes de sécurité** (4 temps) | 1:00 | Les 5 en-têtes + **esgi.fr à 0/100**. R2/R14/R18/R21 (ANSSI-PA-009) ; ⚠️ nosniff = OWASP |
+| 14–15 | **DÉMONSTRATION** ⭐ | 4:30 | Scénario répété, **dans** les 20 min. Vidéo de secours prête |
+| 16 | **Bilan & voies d'amélioration** | 1:30 | Ce qui fonctionne aujourd'hui / limites assumées / évolutions |
+| 17 | **Conclusion** ⭐ | 1:00 | Obligatoire. 3 messages + URL de démo. Puis « merci, des questions ? » |
 | | **Total** | **~20:00** | |
 
-**Répartition macro :** contexte 5 min · technique et méthode 7 min · démo 4 min · bilan 3 min.
+**Répartition macro :** cadrage 5 min · solution et méthode 5 min · analyses 4 min · démo 4,5 min ·
+bilan et conclusion 2,5 min.
 
-**Si vous êtes plusieurs à parler :** prévoir les passages de relais aux frontières de parties
-(diapo 6, diapo 12, diapo 14) — jamais au milieu d'une idée.
+**Numéro de diapo visible sur chacune** (consigne explicite) — le format `7 / 17` est le plus lisible.
 
-### 16.4 Le gabarit « 4 temps » sur une seule diapo
+### 16.4 Le gabarit « 4 temps » (diapos 11, 12, 13)
 
-Pour les diapos 9, 10 et 11, un seul visuel en 4 blocs (2×2) :
+Un seul visuel en 4 blocs, **sans une ligne de code** :
 
 ```
 ┌────────────────────────────┬────────────────────────────┐
-│ ① LE PROBLÈME              │ ② CE QUE ÇA RÉSOUT         │
-│ L'attaque, l'impact PME    │ À quoi sert la contre-      │
-│ (1 phrase + 1 pictogramme) │ mesure (1 phrase)           │
+│ ① LE PROBLÈME              │ ② CE QUE LA PROTECTION      │
+│ L'attaque + l'impact pour   │    APPORTE                  │
+│ une PME (1 phrase, 1 icône) │ À quoi sert la contre-      │
+│                             │ mesure (1 phrase)           │
 ├────────────────────────────┼────────────────────────────┤
-│ ③ COMMENT ON LE VÉRIFIE    │ ④ LE RÉFÉRENTIEL           │
-│ Notre implémentation       │ ANSSI-PA-0xx — R42          │
-│ (2-3 mots-clés techniques) │ « intitulé exact »          │
+│ ③ COMMENT NOUS LE          │ ④ LE RÉFÉRENTIEL           │
+│    VÉRIFIONS               │ ANSSI-PA-0xx — R42          │
+│ La démarche en 1 phrase     │ « intitulé exact »          │
+│ (pas d'implémentation)      │                             │
 └────────────────────────────┴────────────────────────────┘
 ```
 
-Le contenu rédigé des 4 temps **pour les 7 modules** est en 16.6 — même si vous n'en présentez
-que 3, préparez les 7 : les 4 autres tomberont en questions.
+⚠️ **Le bloc ④ n'existe pas partout.** L'ANSSI ne couvre **ni** le subdomain takeover, **ni**
+l'OSINT, **ni** `X-Content-Type-Options`. Sur ces diapos, titrez le bloc « **Référentiel** » et
+citez la vraie source. Le dire franchement est un point fort ; inventer une référence devant un
+jury de professionnels est éliminatoire.
 
-⚠️ **Le bloc ④ n'existe pas pour tous les modules.** L'ANSSI ne couvre **ni** le subdomain
-takeover, **ni** l'OSINT, **ni** `X-Content-Type-Options`. Sur ces diapos, titrez le bloc
-« **Référentiel** » et citez la vraie source. Le dire franchement est un point fort ; inventer
-une référence devant un jury de professionnels est éliminatoire.
+**On ne détaille que 3 analyses sur 7.** Les 4 autres sont sur la diapo de vue d'ensemble (10) et
+préparées **pour les questions** (§16.5) — c'est le bon usage des 10 min de Q&R, et ça évite de
+meubler.
 
-### 16.5 Les 3 diapos que le plan initial oubliait
+### 16.5 Contenu des 4 temps, pour les 7 analyses
 
-**Diapo 7 — Méthodologie de scoring.** ⭐ La diapo qui vous distingue d'un script.
-Trois messages : (1) les **points de contrôle** viennent de 5 guides ANSSI référencés + OWASP ;
-(2) le **système de notation** (barèmes, seuils, moyenne) est **notre méthodologie** — ni l'ANSSI
-ni l'OWASP ne définissent de score sur 100 ; (3) **un critère non observable est exclu du barème**,
-jamais noté arbitrairement (principe d'audit : un constat repose sur une preuve).
-*À l'oral : ne jamais laisser croire que le score est « certifié ANSSI ».*
+*(Le temps ③ est rédigé en langage fonctionnel — utilisable tel quel à l'écran et à l'oral.)*
 
-**Diapos 12-13 — Démonstration.** ⭐ Explicitement attendue par l'école (« démonstration
-commentée d'extraits du projet »). 4 minutes, plan au §13. Répéter le scénario ; prévoir une
-vidéo de secours et un scan déjà en base si le réseau de la salle lâche.
+#### 1 — DNS (SPF, DMARC, DNSSEC, MX)
+- **① Problème** : n'importe qui peut envoyer un mail au nom du domaine (phishing contre les
+  clients de la PME) ; sans DNSSEC, un visiteur peut être redirigé vers un faux site. *(§14.2/4/5)*
+- **② Ce que ça apporte** : SPF déclare les serveurs autorisés à émettre ; DMARC est la politique
+  qui décide du sort des mails non conformes ; DNSSEC garantit l'intégrité des réponses DNS.
+- **③ Comment on vérifie** : on lit les enregistrements publics du domaine et on contrôle leur
+  présence et leur contenu ; un second contrôle indépendant confirme DNSSEC pour éviter les faux
+  négatifs.
+- **④ ANSSI** : **R44** (SPF), **R48+** (DMARC), **R50+** (DNSSEC) — **ANSSI-PA-066** ; **R14**
+  « Activer DNSSEC » — **ANSSI-PA-105**.
 
-**Diapo 15 — Retour d'expérience.** ⭐ Explicitement attendu par l'école, et absent du plan
-initial. Ce n'est pas une redite de la conclusion : c'est **ce que l'exercice vous a apporté**.
-Pistes concrètes et honnêtes :
-- **Technique** : découverte des référentiels ANSSI, du protocole SMTP, de DNSSEC ; debug de
-  vrais bugs non triviaux (voir §15 — les signaux Unix de checkdmarc, les faux négatifs DNSSEC,
-  l'event loop bloqué).
-- **Méthodologie** : la question « que faire d'un critère qu'on ne peut pas vérifier ? » nous a
-  fait revoir tout le système de notation — un vrai débat d'audit, pas un problème de code.
-- **Travail d'équipe** : branches Git, pull requests, résolution de conflits sur des fichiers
-  modifiés en parallèle, arbitrage entre deux approches de scoring.
-- **Produit** : le plus dur n'était pas de détecter les failles, mais de **traduire un constat
-  technique en une action compréhensible** par un gérant de PME.
-
-### 16.6 Contenu des 4 temps, module par module (les 7)
-
-#### Module 1 — DNS Security (SPF, DMARC, DNSSEC, MX)
-- **① Problème** : n'importe qui peut envoyer un mail au nom du domaine (usurpation, phishing
-  contre les clients de la PME) ; sans DNSSEC, un attaquant peut rediriger les visiteurs vers un
-  faux site par empoisonnement de cache. *(§14.2, §14.4, §14.5)*
-- **② Ce que ça résout** : SPF liste les serveurs autorisés à émettre ; DMARC est la politique
-  qui exploite SPF/DKIM et impose l'alignement du `De:` affiché ; DNSSEC signe les réponses DNS.
-- **③ Comment on vérifie** : `checkdmarc` dans un `ThreadPoolExecutor` (timeout 35 s,
-  `skip_tls=True`), fallback dnspython, **contre-vérification DNSKEY** en cas de faux négatif.
-  *(§4, anecdotes §15.1 et §15.2)*
-- **④ ANSSI** : **R44** (SPF), **R48+** (DMARC), **R50+** (DNSSEC) — **ANSSI-PA-066** ;
-  **R14** « Activer DNSSEC » — **ANSSI-PA-105**. *(§17)*
-
-#### Module 2 — SSL/TLS Security
-- **① Problème** : certificat expiré = alerte de danger plein écran pour tous les visiteurs
-  (perte de trafic immédiate) ; TLS obsolète = trafic déchiffrable. *(§14.6)*
-- **② Ce que ça résout** : le certificat prouve l'identité du serveur, TLS 1.2/1.3 chiffre.
-- **③ Comment on vérifie** : vraie connexion TLS port 443 ; **diagnostic précis des certificats
-  rejetés** (on attrape `SSLCertVerificationError`, on se reconnecte sans validation, on parse le
-  certificat → « EXPIRÉ depuis N jours »). Démontrable sur `expired.badssl.com`. *(§15.4)*
+#### 2 — SSL/TLS
+- **① Problème** : certificat expiré = alerte de danger plein écran pour tous les visiteurs ;
+  chiffrement obsolète = trafic interceptable. *(§14.6)*
+- **② Ce que ça apporte** : le certificat prouve l'identité du site, TLS 1.2/1.3 chiffre les échanges.
+- **③ Comment on vérifie** : on établit une vraie connexion sécurisée comme le ferait un
+  navigateur ; si le certificat est refusé, on va lire quand même le certificat pour dire
+  **pourquoi** (expiré depuis N jours, auto-signé, mauvais domaine) au lieu d'un message générique.
 - **④ ANSSI** : **R3** « Privilégier TLS 1.3 et accepter TLS 1.2 » — guide TLS **SDE-NT-35** ;
   **R1** « Mettre en œuvre TLS à l'état de l'art » — **ANSSI-PA-009**.
 
-#### Module 3 — Security Headers *(zoom recommandé)*
-- **① Problème** : XSS, clickjacking, SSL stripping, fuite d'URLs internes. *(§14.7, §14.8)*
-- **② Ce que ça résout** : chaque en-tête bloque une classe d'attaque précise.
-- **③ Comment on vérifie** : GET avec **fallback 3 tentatives** (HTTPS → HTTPS sans vérification
-  de certificat → HTTP), pour auditer même un site au certificat cassé.
+#### 3 — En-têtes de sécurité *(zoom retenu)*
+- **① Problème** : injection de code (XSS), site piégé dans une fausse page (clickjacking),
+  connexion rabattue en clair, fuite d'adresses internes. *(§14.7/8)*
+- **② Ce que ça apporte** : chaque en-tête bloque une classe d'attaque précise.
+- **③ Comment on vérifie** : on demande la page comme un navigateur et on inspecte les en-têtes de
+  réponse ; si le site est mal configuré en HTTPS, on sait quand même l'auditer.
 - **④ ANSSI** : **R2** (HSTS), **R14** (CSP), **R18** (X-Frame-Options), **R21** (Referrer-Policy)
-  — **ANSSI-PA-009**. ⚠️ `nosniff` **n'est pas** ANSSI → **OWASP Secure Headers**.
-- **Exemple en or** : `esgi.fr` → **0/100**, les 5 en-têtes absents, vérifiable en une commande
-  `curl` devant le jury. *(§15.8)*
+  — **ANSSI-PA-009**. ⚠️ `nosniff` → **OWASP Secure Headers**.
+- **Exemple massue** : **esgi.fr → 0/100**, les 5 en-têtes absents, vérifiable en direct.
 
-#### Module 4 — Email Security *(zoom recommandé)*
-- **① Problème** : SMTP n'a pas été conçu chiffré (mails en clair entre serveurs) ; une bannière
-  SMTP bavarde livre logiciel et OS à l'attaquant ; un MX unique = plus d'emails pendant la panne.
+#### 4 — Messagerie *(zoom retenu)*
+- **① Problème** : les mails circulent en clair entre serveurs ; le serveur peut révéler son
+  logiciel et sa version à un attaquant ; un serveur unique = plus d'emails pendant une panne.
   *(§14.9)*
-- **② Ce que ça résout** : STARTTLS chiffre le transport ; bannière discrète = surface
-  d'information réduite ; redondance MX = continuité.
-- **③ Comment on vérifie** : une seule connexion SMTP pour la bannière et STARTTLS, **port 25
-  puis 587** ; raccourci Microsoft 365 / Google Workspace ; si les deux ports sont filtrés →
-  **critères exclus du barème**. *(§15.5)*
+- **② Ce que ça apporte** : le chiffrement du transport protège le contenu ; un serveur discret
+  ne renseigne pas l'attaquant ; la redondance assure la continuité.
+- **③ Comment on vérifie** : on se connecte au serveur de messagerie comme le ferait un autre
+  serveur mail et on regarde s'il propose le chiffrement ; si l'hébergeur bloque cette connexion,
+  **le critère est exclu du barème** au lieu d'être noté au hasard.
 - **④ ANSSI** : **R42** (STARTTLS), **R44** (SPF), **R46+** (DKIM), **R48+** (DMARC), **R51**
   (disponibilité) — **ANSSI-PA-066**.
-- **Bonus jury** : pourquoi **DKIM n'est pas testable passivement** (sélecteur libre, indevinable
-  sans recevoir un mail du domaine) — §14.3. Maîtriser sa limite vaut mieux que la subir.
+- **Bonus jury** : pourquoi **DKIM n'est pas vérifiable** à distance (§14.3) — maîtriser sa limite
+  vaut mieux que la subir.
 
-#### Module 5 — Subdomain Takeover *(zoom recommandé)*
-- **① Problème** : `promo.pme.fr` en CNAME vers une page GitHub supprimée → n'importe qui recrée
-  la ressource et contrôle le sous-domaine au nom de la PME (phishing parfait, avec certificat TLS
-  valide en prime). *(§14.10)*
-- **② Ce que ça résout** : faire le ménage dans les entrées DNS orphelines.
-- **③ Comment on vérifie** : 34 sous-domaines courants → résolution CNAME → 14 signatures de
-  services → si match, GET HTTP et recherche de la **page d'erreur caractéristique**. Scoring
-  inversé (100 − 40 / −10), timeout global 45 s.
-- **④ ⚠️ Pas d'ANSSI.** Référentiel : **can-i-take-over-xyz (EdOverflow)**. Lien indirect avec
-  l'ANSSI : le principe de **surface d'exposition minimale**.
+#### 5 — Subdomain takeover *(zoom retenu)*
+- **① Problème** : un sous-domaine pointe encore vers un service cloud abandonné → un inconnu
+  reprend l'adresse et publie ce qu'il veut au nom de l'entreprise, avec un certificat valide.
+  *(§14.10)*
+- **② Ce que ça apporte** : faire le ménage dans les entrées DNS oubliées.
+- **③ Comment on vérifie** : on teste les sous-domaines les plus courants, on repère ceux qui
+  renvoient vers un service tiers, puis on vérifie si la ressource est réellement **abandonnée**
+  (page d'erreur caractéristique du service).
+- **④ ⚠️ Pas d'ANSSI.** Référentiel : **can-i-take-over-xyz**. Lien indirect : principe de
+  **surface d'exposition minimale**.
 
-#### Module 6 — Domain Expiration
+#### 6 — Expiration du domaine
 - **① Problème** : un domaine non renouvelé est racheté par un tiers → le site **et les emails**
   de la PME lui appartiennent. *(§14.11)*
-- **② Ce que ça résout** : anticiper le renouvellement, activer le renouvellement automatique.
-- **③ Comment on vérifie** : WHOIS (timeout 15 s), normalisation des dates (le format varie selon
-  le TLD), barème par paliers. Limite : certains TLD restreignent le WHOIS (RGPD) → score neutre 50.
-- **④ ANSSI** : **ANSSI-BP-038** — pas de numéro R dédié, mais le guide **décrit le risque**
-  (domaine non renouvelé racheté par un attaquant qui « fournit alors des données falsifiées ») ;
-  voir **R1** (verrou registre) et **R2** (registrar à authentification renforcée).
+- **② Ce que ça apporte** : anticiper le renouvellement.
+- **③ Comment on vérifie** : consultation du registre public des noms de domaine ; certains
+  registres restreignent l'information (RGPD) → on le signale au lieu de deviner.
+- **④ ANSSI** : **ANSSI-BP-038** — le guide décrit le risque (domaine racheté par un attaquant qui
+  « fournit alors des données falsifiées ») ; **R1** (verrou registre), **R2** (registrar sécurisé).
 
-#### Module 7 — OSINT Breaches
-- **① Problème** : les identifiants d'employés circulent dans des fuites publiques (credential
-  stuffing) ; un site de PME compromis distribue des malwares à l'insu du gérant. *(§14.12)*
-- **② Ce que ça résout** : savoir ce qu'un attaquant trouve sur vous **avant** lui.
-- **③ Comment on vérifie** : 3 sources croisées — HIBP `/breaches` (domaine source de fuite ?),
-  URLhaus/abuse.ch (malwares, blacklists), HIBP `/breacheddomain` (emails compromis, clé API).
-  Sans clé API → critère **exclu du score**.
+#### 7 — OSINT / fuites de données
+- **① Problème** : les identifiants d'employés circulent dans des fuites publiques ; un site
+  compromis peut distribuer des malwares à l'insu du gérant. *(§14.12)*
+- **② Ce que ça apporte** : savoir ce qu'un attaquant trouve sur vous **avant** lui.
+- **③ Comment on vérifie** : croisement de trois bases publiques de renseignement (fuites de
+  données, URLs malveillantes, listes noires).
 - **④ ⚠️ Pas d'ANSSI.** Référentiels : **HIBP** et **URLhaus (abuse.ch)** — les mêmes sources que
-  consultent les attaquants pour préparer une campagne.
+  consultent les attaquants.
+
+### 16.6 La démonstration (diapos 14-15, ~4 min 30)
+
+Comprise **dans** les 20 minutes, donc chronométrée et répétée.
+
+1. Lancer le scan sur un domaine préparé → commenter la progression pendant que ça tourne.
+2. Page résultats : lire le score, déplier une analyse en avertissement, insister sur le
+   **langage accessible** des recommandations (c'est la valeur du produit).
+3. Poser **une** question à l'assistant IA (« par quoi je commence ? »).
+4. Télécharger et montrer le **rapport PDF**.
+
+**Vidéo de secours obligatoire** (consigne) : enregistrer ce scénario **avant** le jour J, l'avoir
+en local (pas en streaming). Prévoir aussi un scan déjà en base pour rebondir sans réseau.
 
 ### 16.7 Règles de forme (jury de professionnels)
 
-- **Une idée par diapo**, police ≥ 24 pt, pas de paragraphe : la diapo appuie le discours, elle ne
-  le remplace pas.
-- **Des visuels** : le schéma d'architecture (§1), le scénario de takeover, la capture de la page
-  résultats, un extrait du PDF. Zéro capture de code illisible.
-- **Répéter avec un chrono.** Le dépassement est la faute la plus sanctionnée : à 20 min, on vous
-  coupe, et c'est la conclusion qui saute.
-- **Garder des munitions pour les 10 min de questions** : §12 (questions probables), §14 (le cours),
-  §15 (anecdotes), §17 (les références ANSSI exactes).
+- **Numéro sur chaque diapo** (consigne explicite).
+- **Une idée par diapo**, police ≥ 24 pt. La diapo appuie le discours, elle ne le remplace pas.
+- **Zéro code à l'écran.** Des schémas, des captures d'interface, un extrait du rapport PDF.
+- **Ne pas meubler** : mieux vaut 15 diapos utiles que 25 remplies.
+- **Tenue professionnelle**, pas de baskets.
+- **Répéter avec un chrono**, au moins deux fois en entier, démo comprise. Le dépassement est la
+  faute la plus sanctionnée : à 20 min on vous coupe, et c'est la conclusion qui saute.
+- **Garder les munitions pour les questions** : §12 (questions probables), §14 (le cours), §15
+  (anecdotes, à raconter **sans jargon de code**), §17 (les références ANSSI exactes).
 
 ### Check-list avant la soutenance
-- [ ] Demander (ou relire) **le barème** communiqué par l'école — il dicte le poids de chaque partie.
-- [ ] Backend VPS à jour (`git pull` + rebuild Docker) et testé le matin même.
-- [ ] Vidéo de secours de la démo **et** un scan « intéressant » déjà en base.
-- [ ] Domaines de démo répétés : un bon (cloudflare.com), un moyen (esgi.fr — headers 0/100),
+- [ ] Demander (ou relire) **le barème** communiqué par l'école.
+- [ ] Diapos **numérotées**, minimum 15, aucune capture de code.
+- [ ] **Vidéo de la démo enregistrée** et testée en local.
+- [ ] Backend à jour et testé le matin même ; un scan « intéressant » déjà en base.
+- [ ] Domaines de démo répétés : un bon (cloudflare.com), un moyen (esgi.fr — en-têtes 0/100),
       badssl.com pour le certificat expiré.
 - [ ] Attention à la faute de frappe cloud**fl**are.com pendant la démo 😉.
-- [ ] `/api/docs` ouvert dans un onglet.
 - [ ] Savoir dire ce qui **ne vient pas** de l'ANSSI (nosniff, takeover, OSINT) — §17.
-- [ ] Chronométrer au moins **deux répétitions complètes**, démo comprise.
+- [ ] **Deux répétitions chronométrées** en entier, démo comprise.
+- [ ] **Tenue professionnelle** préparée la veille.
 - [ ] Relire §12, §14 et §17 la veille.
 
 ---
