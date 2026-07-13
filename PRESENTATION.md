@@ -128,9 +128,11 @@ le score en sévérité selon une grille commune :
 
 **D'où vient quoi ? (distinction importante à faire devant le jury)**
 
-- **Les points de contrôle** (le *quoi* : SPF, DMARC, DNSSEC, TLS 1.2+, headers HTTP, STARTTLS,
-  bannière discrète, surface exposée minimale…) sont issus des référentiels **ANSSI** (guides
-  « noms de domaine », « TLS », « sécurisation des sites web ») et **OWASP** (Secure Headers).
+- **Les points de contrôle** (le *quoi* : SPF, DMARC, DNSSEC, TLS 1.2+, headers HTTP, STARTTLS…)
+  sont issus de **5 guides ANSSI** identifiés et référencés (ANSSI-PA-066, ANSSI-PA-009,
+  SDE-NT-35, ANSSI-PA-105, ANSSI-BP-038) et, pour ce que l'ANSSI ne couvre pas, d'**OWASP**
+  (Secure Headers). **La correspondance contrôle par contrôle, avec les numéros de
+  recommandation exacts, est en §17** — c'est là qu'il faut aller si le jury demande les sources.
 - **Le système de notation** (le *combien* : barèmes de points, seuils de sévérité, moyenne
   globale) est une **méthodologie propre au projet** — ni l'ANSSI ni l'OWASP ne définissent de
   score sur 100. Elle applique un principe classique de méthodologie d'audit (esprit ISO 19011 /
@@ -475,6 +477,14 @@ contrôle** (quoi vérifier et pourquoi), pas de système de notation. Le score 
 que ce qu'on a pu vérifier — un critère inobservable (port 25 filtré, clé API absente) est
 « non évalué » et sort du barème au lieu d'être noté arbitrairement.
 
+**« Quelle recommandation ANSSI précisément, pour tel contrôle ? »**
+Le tableau de correspondance complet est en **§17** : chaque contrôle est relié à son guide
+(référence + date) et au **numéro de recommandation**. Exemples à avoir en tête :
+STARTTLS = **R42** (ANSSI-PA-066), SPF = **R44**, DMARC = **R48+**, DNSSEC = **R50+** (PA-066) et
+**R14** (ANSSI-PA-105), HSTS = **R2** et CSP = **R14** (ANSSI-PA-009), TLS 1.2/1.3 = **R3**
+(guide TLS SDE-NT-35). Et savoir dire ce qui ne vient PAS de l'ANSSI : `nosniff` (OWASP),
+le subdomain takeover (can-i-take-over-xyz) et l'OSINT (HIBP/URLhaus).
+
 **« Que se passe-t-il si une API externe est en panne ? »**
 Timeouts + try/except par module : le module concerné rend un score dégradé avec un message
 explicite, le reste du scan continue.
@@ -768,4 +778,68 @@ QR code éventuel.
       badssl.com pour le certificat expiré si on veut montrer le diagnostic SSL.
 - [ ] Attention à la faute de frappe cloud**fl**are.com pendant la démo 😉.
 - [ ] `/api/docs` ouvert dans un onglet.
-- [ ] Relire §12 (questions du jury) et §14 (cours) la veille.
+- [ ] Relire §12 (questions du jury), §14 (cours) et §17 (référentiels) la veille.
+
+---
+
+## 17. Traçabilité des référentiels — quelle recommandation ANSSI derrière chaque contrôle
+
+> **À quoi ça sert :** si le jury demande « d'où sortent vos critères ? », on ne répond pas
+> « de l'ANSSI » en vague : on cite le guide, sa **référence**, et le **numéro de recommandation**.
+> Les 4 guides ci-dessous ont été vérifiés (référence, date, version) — les numéros R sont ceux
+> des documents officiels.
+
+### Les 4 guides ANSSI utilisés
+
+| # | Guide | Référence | Date / version | Sert à |
+|---|---|---|---|---|
+| **G1** | Recommandations relatives à l'interconnexion d'un système d'information à Internet | **ANSSI-PA-066** | 19/06/2020, v3.0 | SPF, DKIM, DMARC, STARTTLS, DNSSEC messagerie |
+| **G2** | Recommandations pour la mise en œuvre d'un site web : maîtriser les standards de sécurité côté navigateur | **ANSSI-PA-009** | 28/04/2021, v2.0 | HSTS, CSP, X-Frame-Options, Referrer-Policy |
+| **G3** | Recommandations de sécurité relatives à TLS | **SDE-NT-35/ANSSI/SDE/NP** | 26/03/2020, v1.2 | Versions TLS, certificats |
+| **G4** | Recommandations relatives aux architectures des services DNS | **ANSSI-PA-105** | 17/07/2024, v1.0 | DNSSEC |
+| **G5** | Bonnes pratiques pour l'acquisition et l'exploitation de noms de domaine | **ANSSI-BP-038** | 10/11/2017, v1.3 | Cycle de vie du domaine, redondance DNS |
+
+Liens (tous sur `cyber.gouv.fr` / `messervices.cyber.gouv.fr`) :
+- G1 — [anssi-guide-passerelle_internet_securisee-v3.pdf](https://messervices.cyber.gouv.fr/documents-guides/anssi-guide-passerelle_internet_securisee-v3.pdf)
+- G2 — [anssi-guide-recommandations_mise_en_oeuvre_site_web…-v2.0.pdf](https://messervices.cyber.gouv.fr/documents-guides/anssi-guide-recommandations_mise_en_oeuvre_site_web_maitriser_standards_securite_cote_navigateur-v2.0.pdf)
+- G3 — [anssi-guide-recommandations_de_securite_relatives_a_tls-v1.2.pdf](https://messervices.cyber.gouv.fr/documents-guides/anssi-guide-recommandations_de_securite_relatives_a_tls-v1.2.pdf)
+- G4 — [anssi-guide-archi_services_dns-v1-0.pdf](https://messervices.cyber.gouv.fr/documents-guides/anssi-guide-archi_services_dns-v1-0.pdf)
+- G5 — [guide_dns_fr_anssi_1.3.pdf](https://cyber.gouv.fr/documents/422/guide_dns_fr_anssi_1.3.pdf)
+
+### Tableau de correspondance : chaque contrôle → sa source
+
+| Notre contrôle | Module | Référentiel | Recommandation exacte |
+|---|---|---|---|
+| **SPF** valide | DNS | G1 | **R44** — « Configurer SPF pour les domaines de messagerie électronique de l'entité » (et R43 côté réception) |
+| **DMARC** valide (`p=reject`) | DNS | G1 | **R48+** — « Configurer DMARC pour les domaines de messagerie électronique de l'entité » (et R47+ côté réception) |
+| **DNSSEC** activé | DNS | G1 + G4 | G1 **R50+** — « Configurer DNSSEC pour les domaines de messagerie électronique de l'entité » ; G4 **R14** — « Activer DNSSEC sur le service DNS de résolution des noms de domaine Internet » (voir aussi G4 R11–R13 : analyse de risque, processus de gestion, supervision) |
+| **MX** présents / redondance | DNS + Email | G5 **R6** — « Utiliser au moins deux serveurs faisant autorité » (esprit de redondance) ; G1 **R51** — « Prévoir des mesures de protection en disponibilité du service de messagerie » |
+| **STARTTLS** sur le serveur SMTP | Email | G1 | **R42** — « Activer l'option STARTTLS sur les serveurs SMTP » (R42+ va plus loin avec REQUIRETLS) |
+| **TLS 1.2 / 1.3** uniquement | SSL | G3 | **R3** — « Privilégier TLS 1.3 et accepter TLS 1.2 » (les versions antérieures sont à proscrire) |
+| Certificat valide / non expiré | SSL | G3 | Chapitre certificats (R26 « Utiliser des clés de taille suffisante », R38 « Utiliser des certificats enregistrés par CT ») ; G2 **R1** — « Mettre en œuvre TLS à l'état de l'art » |
+| **HSTS** | SSL + Headers | G2 | **R2** — « Mettre en œuvre HSTS » |
+| **Content-Security-Policy** | Headers | G2 | **R14** — « Mettre en œuvre CSP par en-tête HTTP » (+ R13, R15, R16 sur les directives) |
+| **X-Frame-Options** | Headers | G2 | **R18** — « Utiliser X-Frame-Options contre le clickjacking » (+ **R17** « Utiliser CSP contre le clickjacking ») |
+| **Referrer-Policy** | Headers | G2 | **R21** — « Définir la stratégie de construction de l'en-tête Referer » |
+| **X-Content-Type-Options: nosniff** | Headers | **OWASP uniquement** | Non couvert nommément par les guides ANSSI consultés → source : [OWASP Secure Headers Project](https://owasp.org/www-project-secure-headers/) |
+| Expiration du nom de domaine | Expiration | G5 | Pas de numéro R dédié, mais le guide décrit explicitement le risque : un domaine non renouvelé avant son expiration peut être racheté par un attaquant qui « fournit alors des données falsifiées » ; voir aussi **R1** (verrou registre) et **R2** (registrar à authentification renforcée) |
+| Sous-domaines orphelins (takeover) | Takeover | **Hors ANSSI** | Source : [can-i-take-over-xyz (EdOverflow)](https://github.com/EdOverflow/can-i-take-over-xyz) — projet de référence de la communauté sécurité offensive |
+| Fuites de données / malware | OSINT | **Hors ANSSI** | Sources OSINT publiques : [HIBP](https://haveibeenpwned.com) et [URLhaus / abuse.ch](https://urlhaus.abuse.ch) |
+| Bannière SMTP discrète | Email | **Bonne pratique générale** | Principe de réduction de la surface d'information (ne pas divulguer logiciel/version) — pas de recommandation ANSSI nominative sur la bannière SMTP |
+
+### Ce qu'il faut savoir dire (et ne pas dire)
+
+**À dire :** « Nos points de contrôle sont adossés à 5 guides ANSSI, référencés et datés — par
+exemple, le test STARTTLS correspond à la recommandation R42 du guide ANSSI-PA-066 sur
+l'interconnexion à Internet, et le test HSTS à la R2 du guide ANSSI-PA-009 sur les sites web. »
+
+**Honnêteté intellectuelle (à assumer si on creuse) :** trois de nos contrôles **ne viennent pas
+de l'ANSSI** et il faut le dire franchement plutôt que se faire prendre :
+- `X-Content-Type-Options: nosniff` → OWASP Secure Headers ;
+- le subdomain takeover → projet communautaire can-i-take-over-xyz ;
+- l'OSINT (fuites, malware) → bases publiques HIBP/URLhaus.
+
+**Et surtout (rappel du §3) :** l'ANSSI fournit les **points de contrôle**, jamais un **score sur
+100**. Le barème (25 pts SPF, 30 pts DMARC…) et les seuils de sévérité sont **notre méthodologie**,
+inspirée des principes d'audit (un constat repose sur une preuve → ce qui n'est pas observable est
+exclu du barème). Ne jamais laisser croire que « le score est certifié ANSSI ».
